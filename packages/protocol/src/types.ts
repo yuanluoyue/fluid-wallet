@@ -37,6 +37,7 @@ export const FLUID_CAPABILITIES = [
   "inference:text",
   "inference:stream",
   "inference:tools",
+  "inference:proxy",
   "conversation:read",
   "conversation:write",
   "activity:read",
@@ -51,6 +52,11 @@ export type FluidCapability = (typeof FLUID_CAPABILITIES)[number];
  *
  * `wallet:manage` and `provider:manage` are intentionally excluded: they change
  * the user's configuration and must stay in the wallet UI.
+ *
+ * `inference:proxy` is broader than `inference:text` — it lets an app speak the
+ * provider's raw HTTP API instead of the structured message shape, which is what
+ * makes drop-in provider SDKs possible. It is grantable, but never granted by
+ * default: the approval dialog says so in plain words.
  */
 export const GRANTABLE_CAPABILITIES = [
   "wallet:read",
@@ -58,6 +64,7 @@ export const GRANTABLE_CAPABILITIES = [
   "inference:text",
   "inference:stream",
   "inference:tools",
+  "inference:proxy",
   "conversation:read",
   "conversation:write",
   "activity:read",
@@ -274,6 +281,40 @@ export interface FluidInferenceResult {
 }
 
 // ---------------------------------------------------------------------------
+// Raw provider requests
+// ---------------------------------------------------------------------------
+
+export type FluidProxyMethod = "GET" | "POST";
+
+/**
+ * A request the page wants the wallet to make on its behalf.
+ *
+ * The page controls the path only. The scheme, host and API key always come
+ * from the provider the wallet has configured, so a compromised page cannot
+ * point the wallet at an arbitrary server.
+ */
+export interface FluidProxyParams {
+  sessionId: string;
+  /** Provider to route through. Defaults to the wallet's default provider. */
+  providerId?: string;
+  method?: FluidProxyMethod;
+  /** Path below the provider base URL, including its `/v1` prefix if it has one. */
+  path: string;
+  /** Raw request body, already serialised by the app. */
+  body?: string;
+  /** Only `accept` is forwarded; everything else is set by the wallet. */
+  headers?: Record<string, string>;
+}
+
+export interface FluidProxyResponse {
+  status: number;
+  contentType: string;
+  bytes: number;
+  /** Set when the stream stopped early because the app cancelled it. */
+  truncated?: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Conversations and activity
 // ---------------------------------------------------------------------------
 
@@ -324,6 +365,10 @@ export const FLUID_EVENTS = {
   InferenceDone: "inference.done",
   InferenceError: "inference.error",
   InferenceCancelled: "inference.cancelled",
+  ProxyStart: "proxy.start",
+  ProxyChunk: "proxy.chunk",
+  ProxyEnd: "proxy.end",
+  ProxyError: "proxy.error",
   PermissionsChanged: "permissions.changed",
   WalletLocked: "wallet.locked",
   WalletUnlocked: "wallet.unlocked",
@@ -364,6 +409,35 @@ export interface FluidPermissionsChangedPayload {
   permission: FluidPermission | null;
 }
 
+/**
+ * Head of a proxied response.
+ *
+ * Sent before any body chunk so the app can build a `Response` with the real
+ * status and content type, exactly as it would with a direct `fetch`.
+ */
+export interface FluidProxyStartPayload {
+  proxyId: string;
+  status: number;
+  contentType: string;
+}
+
+export interface FluidProxyChunkPayload {
+  proxyId: string;
+  /** UTF-8 text. Binary bodies are out of scope. */
+  text: string;
+}
+
+export interface FluidProxyEndPayload {
+  proxyId: string;
+  bytes: number;
+  truncated?: boolean;
+}
+
+export interface FluidProxyErrorPayload {
+  proxyId: string;
+  error: FluidErrorShape;
+}
+
 /** Every event the SDK understands, discriminated by `type`. */
 export type FluidStreamEvent =
   | FluidEvent<FluidInferenceStartPayload> & { type: typeof FLUID_EVENTS.InferenceStart }
@@ -371,4 +445,8 @@ export type FluidStreamEvent =
   | FluidEvent<FluidInferenceToolCallPayload> & { type: typeof FLUID_EVENTS.InferenceToolCall }
   | FluidEvent<FluidInferenceDonePayload> & { type: typeof FLUID_EVENTS.InferenceDone }
   | FluidEvent<FluidInferenceErrorPayload> & { type: typeof FLUID_EVENTS.InferenceError }
-  | FluidEvent<FluidInferenceCancelledPayload> & { type: typeof FLUID_EVENTS.InferenceCancelled };
+  | FluidEvent<FluidInferenceCancelledPayload> & { type: typeof FLUID_EVENTS.InferenceCancelled }
+  | FluidEvent<FluidProxyStartPayload> & { type: typeof FLUID_EVENTS.ProxyStart }
+  | FluidEvent<FluidProxyChunkPayload> & { type: typeof FLUID_EVENTS.ProxyChunk }
+  | FluidEvent<FluidProxyEndPayload> & { type: typeof FLUID_EVENTS.ProxyEnd }
+  | FluidEvent<FluidProxyErrorPayload> & { type: typeof FLUID_EVENTS.ProxyError };

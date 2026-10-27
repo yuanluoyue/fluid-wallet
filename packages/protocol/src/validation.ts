@@ -5,6 +5,7 @@ import type {
   FluidEvent,
   FluidInferenceParams,
   FluidMessage,
+  FluidProxyParams,
   FluidRequest,
   FluidResponse,
 } from "./types";
@@ -23,8 +24,17 @@ export const FLUID_LIMITS = {
   maxToolNameChars: 64,
   /** A single request may not hang forever, even if the model is slow. */
   requestTimeoutMs: 60_000,
+  /**
+   * Inference is exempt from the request timeout: a single generation can
+   * legitimately stream for minutes. Progress is still bounded by the idle
+   * timeout below, so a silent wallet is detected either way.
+   */
+  inferenceTimeoutMs: 10 * 60_000,
   /** Streaming aborts when no event arrives within this window. */
   streamIdleTimeoutMs: 30_000,
+  /** Raw proxied request bodies are bounded like the structured ones. */
+  maxProxyBodyBytes: 1_000_000,
+  maxProxyPathChars: 512,
 } as const;
 
 export type FluidValidation<T> =
@@ -152,6 +162,70 @@ export function parseInferenceParams(input: unknown): FluidValidation<FluidInfer
 
 export function assertInferenceParams(input: unknown): FluidInferenceParams {
   const parsed = parseInferenceParams(input);
+  if (!parsed.ok) throw parsed.error;
+  return parsed.value;
+}
+
+/**
+ * Validates a raw provider request.
+ *
+ * The path is the only thing the page controls, so this is where traversal and
+ * scheme injection get rejected. A wallet must still resolve the final URL
+ * itself and refuse any host it did not configure.
+ */
+export function parseProxyParams(input: unknown): FluidValidation<FluidProxyParams> {
+  if (!isRecord(input)) return invalid("Proxy params must be an object.");
+  if (typeof input.sessionId !== "string" || input.sessionId.length === 0) {
+    return invalid("sessionId is required.");
+  }
+  if (typeof input.path !== "string") return invalid("path is required.");
+  if (!input.path.startsWith("/")) {
+    return invalid('path must be an absolute path starting with "/".');
+  }
+  if (input.path.length > FLUID_LIMITS.maxProxyPathChars) {
+    return invalid("path exceeds the length limit.");
+  }
+  // `..`, backslashes and a scheme would all let the caller escape the prefix
+  // the wallet chose; none of them appear in a real provider endpoint.
+  if (/[\s\\]|\.\.|:\/\//.test(input.path)) {
+    return invalid("path contains a forbidden sequence.");
+  }
+  if (input.path.startsWith("//")) {
+    return invalid("path must not start with a double slash.");
+  }
+
+  if (input.method !== undefined && input.method !== "GET" && input.method !== "POST") {
+    return invalid('method must be "GET" or "POST".');
+  }
+
+  if (input.providerId !== undefined && typeof input.providerId !== "string") {
+    return invalid("providerId must be a string.");
+  }
+
+  if (input.body !== undefined) {
+    if (typeof input.body !== "string") return invalid("body must be a string.");
+    if (input.body.length > FLUID_LIMITS.maxProxyBodyBytes) {
+      return invalid("body exceeds the size limit.");
+    }
+  }
+
+  if (input.headers !== undefined) {
+    if (!isRecord(input.headers)) return invalid("headers must be an object.");
+    for (const [name, value] of Object.entries(input.headers)) {
+      if (name !== "accept") {
+        return invalid(`Header "${name}" cannot be set by the page.`);
+      }
+      if (typeof value !== "string" || value.length > 256) {
+        return invalid(`Header "${name}" is invalid.`);
+      }
+    }
+  }
+
+  return { ok: true, value: input as unknown as FluidProxyParams };
+}
+
+export function assertProxyParams(input: unknown): FluidProxyParams {
+  const parsed = parseProxyParams(input);
   if (!parsed.ok) throw parsed.error;
   return parsed.value;
 }

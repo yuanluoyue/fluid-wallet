@@ -12,6 +12,8 @@ import type {
   FluidPermission,
   FluidPermissionRequest,
   FluidProvider,
+  FluidProxyParams,
+  FluidProxyResponse,
   FluidSession,
   FluidWalletInfo,
 } from "./types";
@@ -32,6 +34,7 @@ export interface FluidMethodParams {
 
   "inference.create": FluidInferenceParams;
   "inference.cancel": { sessionId: string; inferenceId: string };
+  "inference.proxy": FluidProxyParams;
 
   "conversation.list": { limit?: number; cursor?: string } | undefined;
   "conversation.get": { conversationId: string };
@@ -56,6 +59,7 @@ export interface FluidMethodResults {
 
   "inference.create": FluidInferenceResult;
   "inference.cancel": { cancelled: boolean };
+  "inference.proxy": FluidProxyResponse;
 
   "conversation.list": FluidPage<FluidConversation>;
   "conversation.get": FluidConversationDetail;
@@ -83,6 +87,7 @@ export const FluidMethod = {
   SessionClose: "session.close",
   InferenceCreate: "inference.create",
   InferenceCancel: "inference.cancel",
+  InferenceProxy: "inference.proxy",
   ConversationList: "conversation.list",
   ConversationGet: "conversation.get",
   ConversationAppend: "conversation.append",
@@ -115,7 +120,13 @@ export const FLUID_METHOD_CAPABILITIES: Record<FluidMethodName, FluidCapability 
   "session.close": "inference:text",
 
   "inference.create": "inference:text",
-  "inference.cancel": "inference:text",
+  /**
+   * Cancelling is gated on any live permission plus session ownership (checked
+   * by the wallet), not on `inference:text`: a client that only holds
+   * `inference:proxy` still needs to stop its own stream.
+   */
+  "inference.cancel": null,
+  "inference.proxy": "inference:proxy",
 
   "conversation.list": "conversation:read",
   "conversation.get": "conversation:read",

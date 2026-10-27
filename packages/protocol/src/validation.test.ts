@@ -6,8 +6,11 @@ import {
   FLUID_LIMITS,
   parseEvent,
   parseInferenceParams,
+  parseProxyParams,
   parseRequest,
   parseResponse,
+  providerPath,
+  resolveProviderUrl,
 } from "./index";
 
 describe("parseRequest", () => {
@@ -73,6 +76,76 @@ describe("parseInferenceParams", () => {
   it("rejects a tool without a JSON Schema", () => {
     const parsed = parseInferenceParams({ ...base, tools: [{ name: "noop" }] });
     expect(parsed.ok).toBe(false);
+  });
+});
+
+describe("parseProxyParams", () => {
+  const base = { sessionId: "s-1", path: "/v1/chat/completions" };
+
+  it("accepts a minimal request", () => {
+    expect(parseProxyParams(base).ok).toBe(true);
+  });
+
+  it("rejects a relative or absolute URL path", () => {
+    expect(parseProxyParams({ ...base, path: "v1/chat" }).ok).toBe(false);
+    expect(parseProxyParams({ ...base, path: "https://evil.example/v1" }).ok).toBe(false);
+  });
+
+  it("rejects traversal and scheme smuggling", () => {
+    for (const path of ["/../etc/passwd", "/v1/../admin", "/v1\\..\\x", "/a://b"]) {
+      expect(parseProxyParams({ ...base, path }).ok).toBe(false);
+    }
+  });
+
+  it("rejects a path that starts with a double slash", () => {
+    expect(parseProxyParams({ ...base, path: "//evil.example/v1" }).ok).toBe(false);
+  });
+
+  it("only allows the page to set accept", () => {
+    expect(parseProxyParams({ ...base, headers: { accept: "text/event-stream" } }).ok).toBe(true);
+    expect(parseProxyParams({ ...base, headers: { authorization: "Bearer x" } }).ok).toBe(false);
+  });
+
+  it("bounds the body size", () => {
+    const body = "x".repeat(FLUID_LIMITS.maxProxyBodyBytes + 1);
+    expect(parseProxyParams({ ...base, body }).ok).toBe(false);
+  });
+
+  it("rejects unsupported methods", () => {
+    expect(parseProxyParams({ ...base, method: "DELETE" }).ok).toBe(false);
+  });
+});
+
+describe("resolveProviderUrl", () => {
+  const base = "https://api.deepseek.com/v1";
+
+  it("keeps the provider prefix exactly once", () => {
+    expect(resolveProviderUrl(base, "/v1/chat/completions")).toBe(
+      "https://api.deepseek.com/v1/chat/completions",
+    );
+    expect(resolveProviderUrl(base, "/chat/completions")).toBe(
+      "https://api.deepseek.com/v1/chat/completions",
+    );
+    expect(resolveProviderUrl("https://api.deepseek.com/v1/", "/v1/models")).toBe(
+      "https://api.deepseek.com/v1/models",
+    );
+  });
+
+  it("works when the base URL has no prefix", () => {
+    expect(resolveProviderUrl("https://api.deepseek.com", "/v1/models")).toBe(
+      "https://api.deepseek.com/v1/models",
+    );
+  });
+
+  it("never lets the page change the host", () => {
+    expect(resolveProviderUrl(base, "/v1/chat/completions")).toContain("api.deepseek.com");
+    expect(providerPath(base, "/v1/user/balance")).toBe("/user/balance");
+  });
+
+  it("preserves query strings", () => {
+    expect(resolveProviderUrl(base, "/v1/models?limit=5")).toBe(
+      "https://api.deepseek.com/v1/models?limit=5",
+    );
   });
 });
 

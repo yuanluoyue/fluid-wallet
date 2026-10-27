@@ -12,6 +12,7 @@ optionally narrowed to providers and models, with an explicit expiry.
 | `inference:text`      | Create sessions and non-streamed inference    | yes                 |
 | `inference:stream`    | Receive streaming deltas                      | yes                 |
 | `inference:tools`     | Send tool definitions and tool results        | yes                 |
+| `inference:proxy`     | Send raw requests to a configured provider    | yes                 |
 | `conversation:read`   | Read conversations owned by this origin       | yes                 |
 | `conversation:write`  | Append messages to its own conversations      | yes                 |
 | `activity:read`       | Read call logs for this origin                | yes                 |
@@ -81,16 +82,31 @@ Tool calls are a separate grant surface:
   This is a wallet policy decision, not something the app opts out of.
 - Tool results are summarised or referenced, not stored verbatim by default.
 
-## 7. Limits
+## 7. Raw requests
 
-| Limit                         | Default  |
-| ----------------------------- | -------- |
-| Messages per request          | 256      |
-| Characters per message        | 100 000  |
-| Tools per request             | 64       |
-| Tool name length              | 64       |
-| Request payload               | 1 MB     |
-| Requests per origin per minute| 60       |
+`inference:proxy` is broader than `inference:text` and is never granted by
+default, because the wallet cannot inspect what an app sends:
+
+- The approval dialog must show it as its own line, in plain words.
+- The grant still narrows by provider, and a JSON body with a `model` field is
+  checked against the model allow-list.
+- A wallet must refuse page-supplied credentials, and must build the request URL
+  itself rather than trusting an absolute URL.
+- Because the body is opaque, raw calls cannot be priced or token-counted; a
+  wallet that advertises a spending cap must either refuse this capability or
+  say that the cap does not cover it.
+
+## 8. Limits
+
+| Limit                          | Default  |
+| ------------------------------ | -------- |
+| Messages per request           | 256      |
+| Characters per message         | 100 000  |
+| Tools per request              | 64       |
+| Tool name length               | 64       |
+| Request payload                | 1 MB     |
+| Raw request path length        | 512      |
+| Requests per origin per minute | 60       |
 
 Exceeding a limit yields `PayloadTooLarge` or `RateLimited`; the wallet never
 truncates silently.

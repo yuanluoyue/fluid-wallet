@@ -62,7 +62,8 @@ Rules:
 | `session.create`         | `inference:text`       | `FluidSession`                  |
 | `session.close`          | `inference:text`       | `{ ok: true }`                  |
 | `inference.create`       | `inference:text`       | `FluidInferenceResult`          |
-| `inference.cancel`       | `inference:text`       | `{ cancelled: boolean }`        |
+| `inference.cancel`       | any live grant         | `{ cancelled: boolean }`        |
+| `inference.proxy`        | `inference:proxy`      | `FluidProxyResponse`            |
 | `conversation.list`      | `conversation:read`    | `FluidPage<FluidConversation>`  |
 | `conversation.get`       | `conversation:read`    | `FluidConversationDetail`       |
 | `conversation.append`    | `conversation:write`   | `{ ok: true }`                  |
@@ -71,7 +72,52 @@ Rules:
 `conversation.*` and `activity.*` may stay unimplemented in a compatible wallet:
 the SDK degrades to a `MethodNotFound` error rather than assuming support.
 
-## 5. Lifecycle
+## 5. Raw requests
+
+`inference.create` asks the wallet to *shape* a request. `inference.proxy` asks
+it to *forward* one, which is what lets an app keep its provider's own SDK
+(`openai`, `@ai-sdk/*`, anything that accepts a `fetch`).
+
+```ts
+interface FluidProxyParams {
+  sessionId: string;
+  providerId?: string;
+  method?: "GET" | "POST";
+  path: string;                 // e.g. "/v1/chat/completions"
+  body?: string;                // serialised by the app
+  headers?: { accept?: string };  // the only header a page may set
+}
+```
+
+Rules that a wallet **must** enforce:
+
+1. **The host is never taken from the page.** The wallet appends the path to the
+   base URL the user configured, after removing a repeated prefix
+   (`/v1/chat/completions` against `https://api.deepseek.com/v1` becomes
+   `https://api.deepseek.com/v1/chat/completions`, not `/v1/v1/...`).
+2. **Credentials are injected by the wallet.** Any page-supplied `authorization`,
+   `cookie` or `x-api-key` is rejected at validation time, not ignored.
+3. **The path is validated** — absolute, under the length limit, no `..`, no
+   backslashes, no scheme, no leading `//`.
+4. **Provider statuses pass through unchanged.** A 401 must reach the caller as a
+   401 so its SDK raises the error type it expects. Only failures *before* the
+   response head become protocol errors.
+5. **The body is opaque.** A wallet must not log it. It may still apply the
+   grant's model allow-list when the body is JSON with a `model` field.
+
+Streaming uses the same event mechanics as inference:
+
+```
+proxy.start { proxyId, status, contentType }
+proxy.chunk { proxyId, text }
+proxy.end   { proxyId, bytes, truncated? }
+proxy.error { proxyId, error }
+```
+
+`proxy.start` arrives before any chunk so the caller can build a response with
+the real status. Chunks are UTF-8 text; binary bodies are out of scope for 0.1.
+
+## 6. Lifecycle
 
 ```
 detect → connect → session.create → inference.create → session.close → disconnect
@@ -84,7 +130,7 @@ detect → connect → session.create → inference.create → session.close →
 - Session ids are guessable by design; the wallet always re-checks the caller
   origin, so an id alone grants nothing.
 
-## 6. Errors
+## 7. Errors
 
 | Code    | Name                  | Meaning                                     |
 | ------- | --------------------- | ------------------------------------------- |
@@ -111,7 +157,7 @@ detect → connect → session.create → inference.create → session.close →
 
 Codes are append-only. Reuse is a breaking change.
 
-## 7. Versioning
+## 8. Versioning
 
 `wallet.getInfo` returns `protocolVersion`. A wallet must also accept
 `MIN_SUPPORTED_PROTOCOL_VERSION`. Breaking changes bump the minor version while
