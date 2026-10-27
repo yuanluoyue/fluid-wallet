@@ -7,6 +7,7 @@ import {
   isFluidMethodName,
   messageToText,
   parseInferenceParams,
+  parseProxyParams,
   parseRequest,
   toFluidError,
   type FluidBridge,
@@ -18,6 +19,8 @@ import {
   type FluidPermission,
   type FluidPermissionRequest,
   type FluidProvider,
+  type FluidProxyParams,
+  type FluidProxyResponse,
   type FluidRequest,
   type FluidResponse,
   type FluidSession,
@@ -27,6 +30,13 @@ import {
 /** How the mock wallet reacts to `wallet.connect`. */
 export type MockPermissionMode = "auto" | "deny" | "expired";
 
+/** Canned answer for a proxied provider request. */
+export interface MockProxyResult {
+  status: number;
+  contentType: string;
+  body: string;
+}
+
 export interface MockWalletOptions {
   origin?: string;
   locked?: boolean;
@@ -35,12 +45,19 @@ export interface MockWalletOptions {
   walletVersion?: string;
   providers?: FluidProvider[];
   models?: FluidModel[];
-  /** Reply text, or an explicit list of stream chunks. */
-  reply?: (params: FluidInferenceParams) => string | string[];
+  /** Reply text, an explicit list of chunks, or a function that picks one per request. */
+  reply?: MockReply;
+  /** Answer for `inference.proxy`; defaults to echoing the request back as JSON. */
+  proxy?: (params: FluidProxyParams) => MockProxyResult | Promise<MockProxyResult>;
   /** Delay between stream chunks, in milliseconds. */
   chunkDelayMs?: number;
   now?: () => number;
 }
+
+export type MockReply =
+  | string
+  | string[]
+  | ((params: FluidInferenceParams) => string | string[]);
 
 export interface MockWalletState {
   permissions: Map<string, FluidPermission>;
@@ -89,6 +106,19 @@ function splitReply(reply: string | string[]): string[] {
   return reply.match(/\S+\s*/g) ?? [reply];
 }
 
+/** Echoes the request line, which is enough to verify routing and reassembly. */
+function defaultProxy(params: FluidProxyParams): MockProxyResult {
+  return {
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      path: params.path,
+      method: params.method ?? (params.body === undefined ? "GET" : "POST"),
+      body: params.body ?? null,
+    }),
+  };
+}
+
 /**
  * In-memory wallet that speaks the protocol.
  *
@@ -100,10 +130,12 @@ export function createMockWallet(options: MockWalletOptions = {}): MockWallet {
   const now = options.now ?? (() => Date.now());
   const chunkDelayMs = options.chunkDelayMs ?? 0;
   const permissionMode = options.permissionMode ?? "auto";
-  const reply = options.reply ?? ((params: FluidInferenceParams) => {
+  const replyOption: MockReply = options.reply ?? ((params: FluidInferenceParams) => {
     const last = params.messages.at(-1);
     return `mock reply to: ${last ? messageToText(last) : ""}`;
   });
+  const reply = (params: FluidInferenceParams): string | string[] =>
+    typeof replyOption === "function" ? replyOption(params) : replyOption;
 
   const handlers = new Set<(event: FluidEvent) => void>();
   const cancelled = new Set<string>();
@@ -145,7 +177,13 @@ export function createMockWallet(options: MockWalletOptions = {}): MockWallet {
     name: "Mock Fluid Wallet",
     walletVersion: options.walletVersion ?? "0.0.0-mock",
     protocolVersion: PROTOCOL_VERSION,
-    capabilities: ["wallet:read", "models:list", "inference:text", "inference:stream"],
+    capabilities: [
+      "wallet:read",
+      "models:list",
+      "inference:text",
+      "inference:stream",
+      "inference:proxy",
+    ],
     locked: options.locked ?? false,
     defaultModel: "deepseek-chat",
   });
@@ -225,6 +263,41 @@ export function createMockWallet(options: MockWalletOptions = {}): MockWallet {
     return result;
   };
 
+  const proxy = async (
+    params: FluidProxyParams,
+    requestId: string,
+  ): Promise<FluidProxyResponse> => {
+    requirePermission();
+    requireSession(params.sessionId);
+    const parsed = parseProxyParams(params);
+    if (!parsed.ok) throw parsed.error;
+
+    const answer = await (options.proxy ?? defaultProxy)(params);
+    emit({
+      type: FLUID_EVENTS.ProxyStart,
+      requestId,
+      payload: { proxyId: requestId, status: answer.status, contentType: answer.contentType },
+    });
+
+    // Split into small frames so reassembly is actually exercised.
+    for (const text of answer.body.match(/[\s\S]{1,64}/g) ?? []) {
+      if (chunkDelayMs > 0) await delay(chunkDelayMs);
+      emit({
+        type: FLUID_EVENTS.ProxyChunk,
+        requestId,
+        payload: { proxyId: requestId, text },
+      });
+    }
+
+    emit({
+      type: FLUID_EVENTS.ProxyEnd,
+      requestId,
+      payload: { proxyId: requestId, bytes: answer.body.length },
+    });
+
+    return { status: answer.status, contentType: answer.contentType, bytes: answer.body.length };
+  };
+
   const dispatch = async (
     request: FluidRequest,
   ): Promise<{ result: unknown } | { error: FluidError }> => {
@@ -286,6 +359,9 @@ export function createMockWallet(options: MockWalletOptions = {}): MockWallet {
         cancelled.add(params.inferenceId);
         return { result: { cancelled: true } };
       }
+
+      case FluidMethod.InferenceProxy:
+        return { result: await proxy(params as unknown as FluidProxyParams, request.id) };
 
       case FluidMethod.ConversationList:
         requirePermission();
