@@ -1,0 +1,33 @@
+{
+  "name": "@fluid-wallet/runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Trusted runtime that lives inside the extension: origin checks, permission policies, sessions and rate limits.",
+  "license": "MIT",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@fluid-wallet/crypto": "workspace:^",
+    "@fluid-wallet/protocol": "workspace:^",
+    "@fluid-wallet/providers": "workspace:^",
+    "@fluid-wallet/storage": "workspace:^"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

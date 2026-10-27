@@ -1,0 +1,15 @@
+{
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@fluid-wallet/crypto": ["../../packages/crypto/src/index.ts"],
+      "@fluid-wallet/protocol": ["../../packages/protocol/src/index.ts"],
+      "@fluid-wallet/providers": ["../../packages/providers/src/index.ts"],
+      "@fluid-wallet/runtime": ["../../packages/runtime/src/index.ts"],
+      "@fluid-wallet/sdk": ["../../packages/sdk/src/index.ts"],
+      "@fluid-wallet/storage": ["../../packages/storage/src/index.ts"]
+    }
+  },
+  "include": ["entrypoints/**/*", "src/**/*", "wxt.config.ts", ".wxt/**/*"]
+}

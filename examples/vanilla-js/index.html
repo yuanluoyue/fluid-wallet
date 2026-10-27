@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fluid Wallet · vanilla example</title>
+    <style>
+      body {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 48px 24px;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        color: #14161a;
+      }
+      h1 {
+        font-size: 20px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      input {
+        flex: 1;
+        padding: 8px 10px;
+        border: 1px solid #d8d5cf;
+        border-radius: 8px;
+        font: inherit;
+      }
+      button {
+        padding: 8px 14px;
+        border: 1px solid #d8d5cf;
+        border-radius: 8px;
+        background: #fff;
+        font: inherit;
+        cursor: pointer;
+      }
+      pre {
+        margin-top: 20px;
+        padding: 16px;
+        background: #14161a;
+        color: #e7e5df;
+        border-radius: 10px;
+        font-size: 13px;
+        white-space: pre-wrap;
+        min-height: 160px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Fluid Wallet · vanilla example</h1>
+    <p>No framework, no backend: the page asks the wallet for a session and streams a reply.</p>
+
+    <div class="row">
+      <input id="prompt" value="Explain local-first AI in one sentence." />
+      <button id="send" type="button">Send</button>
+    </div>
+
+    <pre id="output">// waiting for input</pre>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

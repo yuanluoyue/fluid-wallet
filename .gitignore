@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+.next/
+.output/
+.wxt/
+.wrangler/
+*.tsbuildinfo
+
+# tests
+coverage/
+playwright-report/
+test-results/
+
+# env & local secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# editor / os
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# local workspace notes
+.workbuddy/

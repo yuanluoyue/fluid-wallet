@@ -1,0 +1,35 @@
+{
+  "name": "fluid-wallet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Open, local-first LLM wallet and access protocol for web AI applications.",
+  "license": "MIT",
+  "packageManager": "pnpm@11.6.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm --filter \"./packages/*\" -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "clean": "pnpm -r exec rm -rf dist .next .output .wxt coverage",
+    "dev:extension": "pnpm --filter @fluid-wallet/extension dev",
+    "dev:website": "pnpm --filter @fluid-wallet/website dev",
+    "dev:playground": "pnpm --filter @fluid-wallet/playground dev",
+    "example:vanilla": "pnpm --filter @fluid-wallet/example-vanilla-js dev"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "eslint": "^9.39.5",
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^4.1.12"
+  }
+}

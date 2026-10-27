@@ -1,0 +1,27 @@
+{
+  "name": "@fluid-wallet/crypto",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local key vault for Fluid Wallet: PBKDF2 key derivation and AES-GCM secret encryption via Web Crypto.",
+  "license": "MIT",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

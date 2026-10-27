@@ -1,0 +1,24 @@
+{
+  "name": "@fluid-wallet/website",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fluid Wallet website: product overview, protocol docs and quick start.",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^16.2.10",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@types/node": "^22.20.5",
+    "typescript": "catalog:"
+  }
+}
