@@ -17,6 +17,14 @@ export interface ApprovalContext {
   firstConnection: boolean;
   providerNames: string[];
   defaultModel?: string;
+  /**
+   * The app calls itself something the origin does not own.
+   *
+   * Not proof of anything — an app may legitimately mention the provider it
+   * uses — but a name that points at another domain is exactly what an
+   * impersonating page looks like, and the user is the only one who can judge.
+   */
+  nameMismatch: boolean;
 }
 
 export interface PendingApproval {

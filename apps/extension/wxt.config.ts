@@ -10,7 +10,9 @@ export default defineConfig({
   manifest: {
     name: "Fluid Wallet",
     description: "Local-first LLM wallet for web AI applications.",
-    permissions: ["storage"],
+    // `idle` is only used to notice the OS screen lock: a wallet that stays
+    // unlocked while the user walks away is the classic local-attack window.
+    permissions: ["storage", "idle"],
     // Only the default provider is pre-granted. Every other endpoint is asked
     // for at the moment the user adds it, so installing the wallet does not
     // hand it access to every host on the web.

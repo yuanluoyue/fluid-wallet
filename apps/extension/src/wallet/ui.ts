@@ -127,6 +127,13 @@ export async function handleUi(message: UiMessage): Promise<unknown> {
       await revokePermission(message.origin);
       return connections();
 
+    case "ui:revokeAll": {
+      for (const record of await db().connections.toArray()) {
+        await revokePermission(record.origin);
+      }
+      return connections();
+    }
+
     case "ui:activity":
       return activity(message.limit);
 

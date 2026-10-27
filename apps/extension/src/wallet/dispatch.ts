@@ -24,7 +24,7 @@ import {
 import { PermissionStore, RateLimiter, SessionRegistry } from "@fluid-wallet/runtime";
 
 import { requestApproval } from "./approval";
-import { spendRequest } from "./budget";
+import { spendRequest, usageToday } from "./budget";
 import { db } from "./db";
 import { emit, rememberTab } from "./events";
 import { cancelInference, runInference } from "./inference";
@@ -308,6 +308,11 @@ export async function dispatch(
         return ok(request.id, { ok: true });
       }
 
+      case FluidMethod.UsageGet: {
+        permissions.checkMethod(FluidMethod.UsageGet, origin);
+        return ok(request.id, await usageToday(origin));
+      }
+
       case FluidMethod.ActivityList: {
         permissions.checkMethod(FluidMethod.ActivityList, origin);
         const params = (request.params ?? {}) as { limit?: number; cursor?: string };
@@ -386,6 +391,7 @@ async function connect(
     firstConnection: existing === null,
     providerNames: scoped.map((provider) => provider.name),
     defaultModel: scoped[0]?.defaultModel,
+    nameMismatch: looksImpersonating(requested.appName, origin),
   });
   if (decision === "deny") {
     throw new FluidError(FluidErrorCode.Rejected, "The user denied the connection request.");
@@ -414,8 +420,32 @@ async function connect(
   return permission;
 }
 
-async function visibleProviders(permission: FluidPermission): Promise<FluidProvider[]> {
-  const providers = await listProviders();
+/**
+ * Whether a self-declared app name points at a domain the origin does not own.
+ *
+ * Cheap impersonation check: the page says "Uniswap" or "api.deepseek.com" but
+ * the browser says it is `unisvvap.app`. Judging that is the user's call, so
+ * the wallet only surfaces the discrepancy rather than blocking on it.
+ */
+function looksImpersonating(appName: string | undefined, origin: string): boolean {
+  if (!appName) return false;
+
+  let host: string;
+  try {
+    host = new URL(origin).host.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return false;
+  }
+
+  const mentioned = appName.toLowerCase().match(/[a-z0-9-]+(?:\.[a-z0-9-]+)+/g);
+  if (!mentioned?.length) return false;
+
+  return !mentioned.some(
+    (candidate) => candidate === host || host.endsWith(`.${candidate}`) || candidate.endsWith(host),
+  );
+}
+
+async function visibleProviders(permission: FluidPermission): Promise<FluidProvider[]> {  const providers = await listProviders();
   if (!permission.providers.length) return providers;
   return providers.filter((provider) => permission.providers.includes(provider.id));
 }

@@ -6,6 +6,7 @@ import { isUiMessage, type UiEnvelope } from "../src/internal";
 import { isFluidBackgroundRequest, resolveSenderOrigin } from "../src/messaging";
 import { dispatch } from "../src/wallet/dispatch";
 import { handleUi, isExtensionPage } from "../src/wallet/ui";
+import { lock } from "../src/wallet/vault";
 
 export default defineBackground(() => {
   // The service worker can be suspended at any time: everything that must
@@ -48,5 +49,11 @@ export default defineBackground(() => {
     if (details.reason === "install") {
       void browser.tabs.create({ url: browser.runtime.getURL("/options.html?welcome=1") });
     }
+  });
+
+  // Screen lock is a stronger signal than a timer: the idle lock waits for a
+  // period of disuse, but a locked laptop means the user already left.
+  browser.idle?.onStateChanged.addListener((state) => {
+    if (state === "locked") void lock();
   });
 });

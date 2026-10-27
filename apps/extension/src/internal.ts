@@ -19,6 +19,7 @@ export type UiMessage =
   | { type: "ui:setDefaultProvider"; id: string }
   | { type: "ui:connections" }
   | { type: "ui:revoke"; origin: string }
+  | { type: "ui:revokeAll" }
   | { type: "ui:activity"; limit?: number }
   | { type: "ui:approvals" }
   | { type: "ui:decide"; id: string; decision: ApprovalDecision }

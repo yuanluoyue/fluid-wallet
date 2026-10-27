@@ -23,11 +23,25 @@ export function ConnectionsView() {
     }
   };
 
+  const revokeAll = async (): Promise<void> => {
+    if (!window.confirm("Revoke every connected app? They will have to ask again.")) return;
+    try {
+      setConnections(await send<ConnectionView[]>({ type: "ui:revokeAll" }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not revoke the connections.");
+    }
+  };
+
   return (
     <Card
       title="Connected apps"
       description="Each origin gets its own grant. Revoking closes its sessions immediately."
     >
+      {connections.length > 0 ? (
+        <button className="btn btn-danger" onClick={() => void revokeAll()}>
+          Revoke all {connections.length}
+        </button>
+      ) : null}
       {connections.length === 0 ? (
         <p className="empty">No app has connected to this wallet yet.</p>
       ) : (

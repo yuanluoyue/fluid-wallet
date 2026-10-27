@@ -64,6 +64,11 @@ export function ApprovalView({ requestId }: { requestId: string }) {
       ) : (
         <p className="badge badge-ok">Already connected · asking for wider access</p>
       )}
+      {request.context.nameMismatch ? (
+        <p className="badge badge-danger">
+          This page names a domain it does not own — check the address bar before approving
+        </p>
+      ) : null}
       {request.request.reason ? <p className="muted">{request.request.reason}</p> : null}
 
       <section className="card" style={{ marginTop: 18 }}>
