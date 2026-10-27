@@ -3,6 +3,8 @@ import { browser } from "wxt/browser";
 
 import type { UiMessage } from "../internal";
 import { decideApproval, listPending, type ApprovalDecision } from "./approval";
+import { exportBackup, importBackup } from "./backup";
+import { getDailyLimit, setDailyLimit, usageToday } from "./budget";
 import { db } from "./db";
 import { revokePermission } from "./dispatch";
 import {
@@ -19,6 +21,7 @@ export interface UiState {
   configured: boolean;
   locked: boolean;
   autoLockMs: number;
+  dailyLimit: number;
 }
 
 export interface ProviderView {
@@ -40,6 +43,8 @@ export interface ConnectionView {
   models?: string[];
   grantedAt: number;
   expiresAt?: number;
+  requestsToday: number;
+  dailyLimit: number;
 }
 
 export interface ActivityView {
@@ -93,6 +98,10 @@ export async function handleUi(message: UiMessage): Promise<unknown> {
       await setAutoLock(message.ms);
       return state();
 
+    case "ui:setDailyLimit":
+      await setDailyLimit(message.limit);
+      return state();
+
     case "ui:providers":
       return providers();
 
@@ -127,6 +136,12 @@ export async function handleUi(message: UiMessage): Promise<unknown> {
     case "ui:decide":
       return { decided: decideApproval(message.id, message.decision as ApprovalDecision) };
 
+    case "ui:exportBackup":
+      return exportBackup(message.passphrase);
+
+    case "ui:importBackup":
+      return importBackup(message.passphrase, message.contents);
+
     default: {
       const unreachable: never = message;
       throw new FluidError(-32601, `Unknown UI message: ${JSON.stringify(unreachable)}`);
@@ -135,12 +150,13 @@ export async function handleUi(message: UiMessage): Promise<unknown> {
 }
 
 async function state(): Promise<UiState> {
-  const [configured, unlocked, autoLockMs] = await Promise.all([
+  const [configured, unlocked, autoLockMs, dailyLimit] = await Promise.all([
     hasVault(),
     isUnlocked(),
     getAutoLock(),
+    getDailyLimit(),
   ]);
-  return { configured, locked: !unlocked, autoLockMs };
+  return { configured, locked: !unlocked, autoLockMs, dailyLimit };
 }
 
 async function providers(): Promise<ProviderView[]> {
@@ -159,15 +175,22 @@ async function providers(): Promise<ProviderView[]> {
 
 async function connections(): Promise<ConnectionView[]> {
   const records = await db().connections.orderBy("updatedAt").reverse().toArray();
-  return records.map((record) => ({
-    origin: record.origin,
-    appId: record.permission.appId ?? record.appId,
-    capabilities: record.permission.capabilities,
-    providers: record.permission.providers,
-    models: record.permission.models,
-    grantedAt: record.permission.grantedAt,
-    expiresAt: record.permission.expiresAt,
-  }));
+  return Promise.all(
+    records.map(async (record) => {
+      const usage = await usageToday(record.origin);
+      return {
+        origin: record.origin,
+        appId: record.permission.appId ?? record.appId,
+        capabilities: record.permission.capabilities,
+        providers: record.permission.providers,
+        models: record.permission.models,
+        grantedAt: record.permission.grantedAt,
+        expiresAt: record.permission.expiresAt,
+        requestsToday: usage.used,
+        dailyLimit: usage.limit,
+      };
+    }),
+  );
 }
 
 async function activity(limit = 50): Promise<ActivityView[]> {

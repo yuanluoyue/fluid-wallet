@@ -11,6 +11,7 @@ export type UiMessage =
   | { type: "ui:lock" }
   | { type: "ui:changePassword"; current: string; next: string }
   | { type: "ui:setAutoLock"; ms: number }
+  | { type: "ui:setDailyLimit"; limit: number }
   | { type: "ui:providers" }
   | { type: "ui:saveProvider"; input: ProviderInput }
   | { type: "ui:deleteProvider"; id: string }
@@ -20,7 +21,9 @@ export type UiMessage =
   | { type: "ui:revoke"; origin: string }
   | { type: "ui:activity"; limit?: number }
   | { type: "ui:approvals" }
-  | { type: "ui:decide"; id: string; decision: ApprovalDecision };
+  | { type: "ui:decide"; id: string; decision: ApprovalDecision }
+  | { type: "ui:exportBackup"; passphrase: string }
+  | { type: "ui:importBackup"; passphrase: string; contents: string };
 
 export interface UiEnvelope<T = unknown> {
   result?: T;

@@ -6,10 +6,24 @@ const APPROVAL_TIMEOUT_MS = 120_000;
 
 export type ApprovalDecision = "allow" | "always" | "deny";
 
+/**
+ * Everything the approval window needs beyond the raw request.
+ *
+ * Filled in by the dispatcher, which is the only place that can see the wallet
+ * as a whole: whether this origin has connected before, and which providers the
+ * grant would actually reach.
+ */
+export interface ApprovalContext {
+  firstConnection: boolean;
+  providerNames: string[];
+  defaultModel?: string;
+}
+
 export interface PendingApproval {
   id: string;
   origin: string;
   request: FluidPermissionRequest;
+  context: ApprovalContext;
   createdAt: number;
 }
 
@@ -22,10 +36,11 @@ const pending = new Map<string, Entry>();
 const byOrigin = new Map<string, Promise<ApprovalDecision>>();
 
 export function listPending(): PendingApproval[] {
-  return [...pending.values()].map(({ id, origin, request, createdAt }) => ({
+  return [...pending.values()].map(({ id, origin, request, context, createdAt }) => ({
     id,
     origin,
     request,
+    context,
     createdAt,
   }));
 }
@@ -33,7 +48,13 @@ export function listPending(): PendingApproval[] {
 export function getPending(id: string): PendingApproval | null {
   const entry = pending.get(id);
   if (!entry) return null;
-  return { id: entry.id, origin: entry.origin, request: entry.request, createdAt: entry.createdAt };
+  return {
+    id: entry.id,
+    origin: entry.origin,
+    request: entry.request,
+    context: entry.context,
+    createdAt: entry.createdAt,
+  };
 }
 
 /**
@@ -61,6 +82,7 @@ export function decideApproval(id: string, decision: ApprovalDecision): boolean 
 export function requestApproval(
   origin: string,
   request: FluidPermissionRequest,
+  context: ApprovalContext,
 ): Promise<ApprovalDecision> {
   const existing = byOrigin.get(origin);
   if (existing) return existing;
@@ -73,7 +95,7 @@ export function requestApproval(
       resolve("deny");
     }, APPROVAL_TIMEOUT_MS);
 
-    pending.set(id, { id, origin, request, createdAt: Date.now(), settle: resolve, timer });
+    pending.set(id, { id, origin, request, context, createdAt: Date.now(), settle: resolve, timer });
   });
 
   byOrigin.set(origin, decision);

@@ -24,6 +24,7 @@ import {
 import { PermissionStore, RateLimiter, SessionRegistry } from "@fluid-wallet/runtime";
 
 import { requestApproval } from "./approval";
+import { spendRequest } from "./budget";
 import { db } from "./db";
 import { emit, rememberTab } from "./events";
 import { cancelInference, runInference } from "./inference";
@@ -238,6 +239,7 @@ export async function dispatch(
           );
         }
         limiter.consume(origin);
+        await spendRequest(origin);
 
         const result: FluidInferenceResult = await runInference({
           requestId: request.id,
@@ -272,6 +274,7 @@ export async function dispatch(
           );
         }
         limiter.consume(origin);
+        await spendRequest(origin);
 
         const result = await runProxy({
           requestId: request.id,
@@ -372,7 +375,18 @@ async function connect(
     );
   }
 
-  const decision = await requestApproval(origin, requested);
+  // The approval window is the only place the user sees what a grant reaches,
+  // so it is told up front instead of making them guess from a capability list.
+  const walletProviders = await listProviders();
+  const scoped = requested.providers?.length
+    ? walletProviders.filter((provider) => requested.providers?.includes(provider.id))
+    : walletProviders;
+
+  const decision = await requestApproval(origin, requested, {
+    firstConnection: existing === null,
+    providerNames: scoped.map((provider) => provider.name),
+    defaultModel: scoped[0]?.defaultModel,
+  });
   if (decision === "deny") {
     throw new FluidError(FluidErrorCode.Rejected, "The user denied the connection request.");
   }
@@ -386,7 +400,9 @@ async function connect(
     : requested;
 
   const permission = permissions.grant(origin, merged, {
-    ttlMs: decision === "always" ? 30 * 24 * 60 * 60 * 1000 : undefined,
+    // `null` means "until revoked" — the opposite of what the old code did, which
+    // handed "always allow" a 30-day expiry and "allow" none at all.
+    ttlMs: decision === "always" ? null : undefined,
   });
 
   await grantPermission(origin, permission);

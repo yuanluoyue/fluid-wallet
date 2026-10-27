@@ -95,6 +95,10 @@ default, because the wallet cannot inspect what an app sends:
 - Because the body is opaque, raw calls cannot be priced or token-counted; a
   wallet that advertises a spending cap must either refuse this capability or
   say that the cap does not cover it.
+- The reachable endpoints are a closed list (`POST /chat/completions`,
+  `POST /completions`, `POST /embeddings`, `GET /models`). Providers expose far
+  more than that on the same host, and "any path on a trusted host" is the API
+  equivalent of an unlimited token approval.
 
 ## 8. Limits
 
@@ -107,6 +111,18 @@ default, because the wallet cannot inspect what an app sends:
 | Request payload                | 1 MB     |
 | Raw request path length        | 512      |
 | Requests per origin per minute | 60       |
+| Requests per origin per day    | 300      |
 
-Exceeding a limit yields `PayloadTooLarge` or `RateLimited`; the wallet never
-truncates silently.
+Exceeding a limit yields `PayloadTooLarge`, `RateLimited` or `BudgetExceeded`;
+the wallet never truncates silently. The daily counter is configurable and
+survives service-worker restarts; `0` disables it.
+
+## 9. Grant lifetime
+
+- A grant lasts a week by default, so an abandoned connection quietly expires.
+- "Always allow" means **no expiry** (`expiresAt` omitted), not a longer one.
+- Expiry is checked on every read rather than with a timer, because a suspended
+  service worker has no timers.
+- Grants are local to the wallet that issued them. A backup carries credentials,
+  never permissions: restoring on another machine must not re-authorise apps the
+  user did not re-approve there.

@@ -48,6 +48,11 @@ export function ConnectionsView() {
                 {connection.expiresAt ? ` · expires ${new Date(connection.expiresAt).toLocaleString()}` : ""}
                 {connection.providers.length ? ` · ${connection.providers.join(", ")}` : " · all providers"}
               </div>
+              <div className="muted" style={{ marginTop: 2 }}>
+                {connection.dailyLimit > 0
+                  ? `${connection.requestsToday} / ${connection.dailyLimit} requests today`
+                  : `${connection.requestsToday} requests today · no daily limit`}
+              </div>
             </div>
             <button className="btn btn-danger" onClick={() => void revoke(connection.origin)}>
               Revoke

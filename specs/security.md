@@ -95,8 +95,24 @@ protects data at rest on disk, not a compromised browser.
   runs in the trusted context.
 - Logs contain metadata only: origin, provider, model, timings, tokens, status.
   Prompt and response bodies are opt-in and subject to a retention policy.
-- Exports are plain JSON **without** credentials. Encrypted backups are a later,
-  versioned format.
+- Exports are plain JSON **without** credentials. A separate, passphrase-sealed
+  backup format carries the keys (see 4.1).
+
+### 4.1 Encrypted backup
+
+- The format is self-contained: KDF parameters travel with the ciphertext, so a
+  file can be opened without the wallet that wrote it. A backup that only works
+  on the machine it came from is not a backup.
+- The backup passphrase is independent of the master password. Reusing the
+  master password would make one compromise open both, and the file lives
+  outside the extension where the master password was never meant to travel.
+- Contents: provider records and their keys. **Never** grants, sessions, logs or
+  conversations — a restored wallet must not silently re-authorise apps the user
+  has not re-approved on that machine.
+- Failures collapse to one message (wrong passphrase / damaged file), because
+  distinguishing them helps an attacker more than the user.
+- The in-wallet UI holds the plaintext in memory only for the duration of the
+  export; nothing is written to disk unencrypted.
 
 ## 5. Logging and error hygiene
 

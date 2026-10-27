@@ -59,6 +59,11 @@ export function ApprovalView({ requestId }: { requestId: string }) {
         {request.request.appName ?? hostOf(request.origin)}
       </h1>
       <p className="mono">{request.origin}</p>
+      {request.context.firstConnection ? (
+        <p className="badge badge-warn">First time this site connects</p>
+      ) : (
+        <p className="badge badge-ok">Already connected · asking for wider access</p>
+      )}
       {request.request.reason ? <p className="muted">{request.request.reason}</p> : null}
 
       <section className="card" style={{ marginTop: 18 }}>
@@ -74,6 +79,31 @@ export function ApprovalView({ requestId }: { requestId: string }) {
           It never receives your API key — only answers. You can revoke this at any time.
         </p>
       </section>
+
+      {request.context.providerNames.length ? (
+        <section className="card">
+          <h2>It will use</h2>
+          <p className="muted">
+            {request.context.providerNames.join(", ")}
+            {request.context.defaultModel ? ` · default model ${request.context.defaultModel}` : ""}
+          </p>
+          <p className="hint">
+            Requests are billed to your own account with that provider, and counted against the
+            per-site daily budget in Settings.
+          </p>
+        </section>
+      ) : null}
+
+      {request.request.capabilities.includes("inference:proxy") ? (
+        <section className="card">
+          <h2>Direct API access</h2>
+          <p className="muted">
+            This site can call your provider&apos;s chat, embedding and model-list endpoints itself,
+            with its own prompt format. Other endpoints — account, balance, files — stay blocked by
+            the wallet.
+          </p>
+        </section>
+      ) : null}
 
       {error ? <p className="error">{error}</p> : null}
 
