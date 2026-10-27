@@ -104,6 +104,37 @@ Rules that a wallet **must** enforce:
    response head become protocol errors.
 5. **The body is opaque.** A wallet must not log it. It may still apply the
    grant's model allow-list when the body is JSON with a `model` field.
+6. **Only the chat surface is reachable.** Fixing the host is not enough: an
+   origin with `inference:proxy` would otherwise reach every endpoint on the
+   provider, including account and file APIs it was never granted. The allowed
+   set is deliberately small and closed:
+
+   | Method | Path                |
+   | ------ | ------------------- |
+   | `POST` | `/chat/completions` |
+   | `POST` | `/completions`      |
+   | `POST` | `/embeddings`       |
+   | `GET`  | `/models`           |
+
+   Anything else fails with `PermissionDenied` before a request leaves the
+   wallet. Matching happens on the *effective* path (after the base prefix is
+   removed), is case-insensitive, ignores a trailing slash, and rejects `..`
+   rather than normalising it — a chat client never produces a traversal path,
+   so it is a signal, not a formatting quirk.
+
+## 5.1 Budget
+
+A page cannot spend faster than the wallet allows, regardless of capability:
+
+- **Burst**: 60 requests per minute per origin (`RateLimited`).
+- **Daily**: a configurable number of requests per origin per UTC day, 300 by
+  default, `0` meaning unlimited (`BudgetExceeded`). The counter is persisted,
+  because the service worker may be suspended between requests.
+
+Both are charged before the provider is called, so a refusal costs the user
+nothing. The daily counter is the only defence against the failure mode this
+protocol cannot see: a retry loop or a prompt-injected page that asks ten
+thousand times while the user is asleep.
 
 Streaming uses the same event mechanics as inference:
 

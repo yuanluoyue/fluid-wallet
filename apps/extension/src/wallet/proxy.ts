@@ -2,6 +2,8 @@ import {
   FLUID_EVENTS,
   FluidError,
   FluidErrorCode,
+  describeProviderEndpoints,
+  isAllowedProviderEndpoint,
   resolveProviderUrl,
   type FluidEvent,
   type FluidPermission,
@@ -54,6 +56,19 @@ export async function runProxy(input: RunProxyInput): Promise<FluidProxyResponse
   enforceModelScope(permission, params.body);
 
   const credentials = await getProviderCredentials(providerId);
+  const method = params.method ?? (params.body === undefined ? "GET" : "POST");
+
+  // Fixing the host is only half of it: an origin with `inference:proxy` would
+  // otherwise reach every endpoint on the provider, including account and file
+  // APIs it was never granted. Checked here, in the trusted runtime, because the
+  // page-side SDK is not a boundary.
+  if (!isAllowedProviderEndpoint(credentials.baseUrl, params.path, method)) {
+    throw new FluidError(
+      FluidErrorCode.PermissionDenied,
+      `"${method} ${params.path}" is outside the endpoints this wallet proxies. Allowed: ${describeProviderEndpoints()}.`,
+    );
+  }
+
   let target: string;
   try {
     target = resolveProviderUrl(credentials.baseUrl, params.path);
@@ -61,7 +76,6 @@ export async function runProxy(input: RunProxyInput): Promise<FluidProxyResponse
     throw new FluidError(FluidErrorCode.InvalidParams, "The provider base URL is not a valid URL.");
   }
 
-  const method = params.method ?? (params.body === undefined ? "GET" : "POST");
   const headers: Record<string, string> = { authorization: `Bearer ${credentials.apiKey}` };
   if (params.body !== undefined) headers["content-type"] = "application/json";
   if (params.headers?.accept) headers.accept = params.headers.accept;

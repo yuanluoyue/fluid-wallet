@@ -39,3 +39,57 @@ export function resolveProviderUrl(baseUrl: string, requestPath: string): string
   const { origin } = new URL(baseUrl);
   return `${origin}${basePath(baseUrl)}${providerPath(baseUrl, requestPath)}`;
 }
+
+/**
+ * Endpoints a page may reach through `inference.proxy`.
+ *
+ * Fixing the host is not enough on its own: without this list an origin holding
+ * `inference:proxy` could call *any* endpoint on the provider — `/user/balance`
+ * to read the account, `/files` to upload — which is the API-key equivalent of
+ * an unlimited token approval. The list is the wallet's own rule, not the
+ * provider's: it names the calls a chat client legitimately makes and nothing
+ * else.
+ */
+export const PROVIDER_ENDPOINTS = [
+  { path: "/chat/completions", methods: ["POST"] },
+  { path: "/completions", methods: ["POST"] },
+  { path: "/embeddings", methods: ["POST"] },
+  { path: "/models", methods: ["GET"] },
+] as const;
+
+/** Path a request would hit on the provider, without the query string. */
+export function providerEndpointPath(baseUrl: string, requestPath: string): string {
+  const effective = providerPath(baseUrl, requestPath);
+  const query = effective.indexOf("?");
+  const pathname = query === -1 ? effective : effective.slice(0, query);
+  return pathname.replace(/\/+$/, "").replace(/\/{2,}/g, "/").toLowerCase();
+}
+
+/**
+ * Whether a raw request stays inside the allowed surface.
+ *
+ * Path traversal is rejected rather than normalised: `..` in a provider path is
+ * never something a chat client produces, so it is a signal rather than a
+ * formatting quirk.
+ */
+export function isAllowedProviderEndpoint(
+  baseUrl: string,
+  requestPath: string,
+  method = "POST",
+): boolean {
+  const pathname = providerEndpointPath(baseUrl, requestPath);
+  if (!pathname || pathname.includes("..")) return false;
+
+  const verb = method.toUpperCase();
+  return PROVIDER_ENDPOINTS.some(
+    (endpoint) =>
+      endpoint.path === pathname && (endpoint.methods as readonly string[]).includes(verb),
+  );
+}
+
+/** Human-readable list for error messages and the approval dialog. */
+export function describeProviderEndpoints(): string {
+  return PROVIDER_ENDPOINTS.map(
+    (endpoint) => `${endpoint.methods.join("/")} ${endpoint.path}`,
+  ).join(", ");
+}
