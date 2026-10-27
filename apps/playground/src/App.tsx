@@ -1,4 +1,4 @@
-import { FluidClient, type FluidClientState } from "@fluid-wallet/sdk";
+import { FluidClient, createFluidFetch, type FluidClientState } from "@fluid-wallet/sdk";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 const s = {
@@ -71,7 +71,15 @@ export function App() {
 
   const connect = async () => {
     try {
-      const permission = await client.connect();
+      const permission = await client.connect({
+        capabilities: [
+          "wallet:read",
+          "models:list",
+          "inference:text",
+          "inference:stream",
+          "inference:proxy",
+        ],
+      });
       push(`connected: ${permission.origin} [${permission.capabilities.join(", ")}]`);
     } catch (error) {
       push(`connect failed: ${(error as Error).message}`);
@@ -110,6 +118,46 @@ export function App() {
     }
   };
 
+  /**
+   * Exercises the raw path end to end: the page sends the same request it would
+   * send to DeepSeek directly, and the wallet supplies the host and the key.
+   */
+  const rawFetch = async () => {
+    try {
+      const session = state.session ?? (await client.createSession({ model: "deepseek-chat" }));
+      const fluidFetch = createFluidFetch(client, { sessionId: session.id });
+
+      const response = await fluidFetch("https://api.deepseek.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          stream: true,
+          messages: [{ role: "user", content: "Say hello in five words." }],
+        }),
+      });
+
+      push(`raw fetch: ${response.status} ${response.headers.get("content-type") ?? ""}`);
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        push(`raw body: ${(await response.text()).slice(0, 240)}`);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let text = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        text += decoder.decode(value, { stream: true });
+      }
+      push(`raw body: ${text.slice(0, 240)}${text.length > 240 ? "…" : ""}`);
+    } catch (error) {
+      push(`raw fetch failed: ${(error as Error).message}`);
+    }
+  };
+
   return (
     <main style={s.page}>
       <h1 style={{ fontSize: 22, margin: 0 }}>Fluid Protocol Playground</h1>
@@ -138,6 +186,9 @@ export function App() {
         </button>
         <button style={s.button} onClick={stream} type="button">
           Stream test
+        </button>
+        <button style={s.button} onClick={rawFetch} type="button">
+          Raw fetch test
         </button>
         <button style={s.button} onClick={() => setLog([])} type="button">
           Clear log
