@@ -22,6 +22,7 @@ const methods = [
   ["conversation.list", "This app's own history only"],
   ["conversation.get", "Read one of this app's conversations"],
   ["conversation.append", "Append messages to this app's history"],
+  ["usage.get", "Today's request budget for this origin"],
   ["activity.list", "This app's own call log"],
 ];
 
@@ -107,6 +108,29 @@ const result = await streamText({ model: deepseek("deepseek-chat"), messages, to
             Your app sends a path, never a host. The wallet appends it to the provider you
             configured, so a compromised page cannot redirect the request — and the key never enters
             the page.
+          </p>
+          <h3>When the wallet refuses</h3>
+          <p>
+            A refusal is not a transport error. &ldquo;The wallet is locked&rdquo; and &ldquo;the
+            provider returned 500&rdquo; both arrive as rejections, but only one of them is the
+            person in front of the screen&apos;s to fix. Map them once, near the top of your app:
+          </p>
+          <pre>
+            <code>{`import { describeFluidError } from "@fluid-wallet/sdk";
+
+try {
+  await streamText({ model, messages });
+} catch (error) {
+  const issue = describeFluidError(error);
+  // issue.kind:   "locked" | "not-connected" | "denied" | "budget" | "provider" | …
+  // issue.action: "unlock" | "connect" | "approve" | "wait" | "fix-provider" | "none"
+  showBanner(issue.title, issue.detail);
+}`}</code>
+          </pre>
+          <p className="note">
+            <code>client.usage()</code> returns today&apos;s request budget for the origin, so a
+            chat UI can warn before the limit is hit instead of after. Against a wallet that predates
+            the method it returns <code>null</code> rather than throwing.
           </p>
         </section>
 

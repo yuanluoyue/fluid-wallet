@@ -27,6 +27,7 @@ import {
   type FluidProvider,
   type FluidResultOf,
   type FluidSession,
+  type FluidQuota,
   type FluidWalletInfo,
   type FluidEvent,
   type FluidFinishReason,
@@ -248,6 +249,22 @@ export class FluidClient {
       FluidMethod.ModelList,
       providerId ? { providerId } : undefined,
     );
+  }
+
+  /**
+   * Today's request budget for this origin.
+   *
+   * This is the one piece of wallet state a chat UI needs in order to warn
+   * before a stream dies, rather than after. Returns `null` against a wallet
+   * that predates `usage.get`: hiding a counter is better than failing to boot.
+   */
+  async usage(): Promise<FluidQuota | null> {
+    try {
+      return await this.#call<FluidQuota>(FluidMethod.UsageGet);
+    } catch (error) {
+      if (FluidError.is(error, FluidErrorCode.MethodNotFound)) return null;
+      throw toFluidError(error);
+    }
   }
 
   async createSession(params: FluidCreateSessionParams = {}): Promise<FluidSession> {

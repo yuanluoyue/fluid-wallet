@@ -127,4 +127,31 @@ describe("FluidClient", () => {
     expect(client.state.session).toBeNull();
     await expect(client.closeSession(session.id)).rejects.toBeInstanceOf(FluidError);
   });
+
+  it("reads today's budget for the origin", async () => {
+    const { client } = setup({
+      usage: { used: 12, limit: 300, day: "2026-10-27", resetsAt: 1_800_000 },
+    });
+    await client.connect();
+
+    await expect(client.usage()).resolves.toMatchObject({ used: 12, limit: 300 });
+  });
+
+  it("treats an unknown usage method as 'no counter', not an error", async () => {
+    const wallet = createMockWallet();
+    const request = wallet.request.bind(wallet);
+    wallet.request = async (message) =>
+      message.method === "usage.get"
+        ? {
+            jsonrpc: "2.0",
+            id: message.id,
+            error: { code: FluidErrorCode.MethodNotFound, message: "Not in this wallet." },
+          }
+        : request(message);
+
+    const client = new FluidClient({ transport: new BridgeTransport(wallet) });
+    await client.connect();
+
+    await expect(client.usage()).resolves.toBeNull();
+  });
 });
