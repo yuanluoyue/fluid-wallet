@@ -10,6 +10,8 @@ import {
   generateDataKey,
   generateSalt,
   importDataKey,
+  openFile,
+  sealFile,
   unwrapDataKey,
   wrapDataKey,
 } from "./index";
@@ -86,5 +88,39 @@ describe("SecretVault", () => {
 
     expect(vault.locked).toBe(true);
     await expect(vault.seal("x")).rejects.toThrow(/locked/i);
+  });
+});
+
+describe("sealFile / openFile", () => {
+  const payload = { providers: [{ id: "deepseek", apiKey: "sk-test" }] };
+
+  it("round-trips a payload through a portable file", async () => {
+    const file = await sealFile({ format: "test-backup", value: payload, passphrase: "correct horse" });
+    await expect(openFile(file, "correct horse", "test-backup")).resolves.toEqual(payload);
+  });
+
+  it("refuses the wrong passphrase", async () => {
+    const file = await sealFile({ format: "test-backup", value: payload, passphrase: "correct horse" });
+    await expect(openFile(file, "wrong horse!", "test-backup")).rejects.toThrow(/wrong passphrase/i);
+  });
+
+  it("refuses a file whose ciphertext was edited", async () => {
+    const file = await sealFile({ format: "test-backup", value: payload, passphrase: "correct horse" });
+    const parsed = JSON.parse(file) as { secret: { ciphertext: string } };
+    parsed.secret.ciphertext = `${parsed.secret.ciphertext.slice(0, -4)}AAAA`;
+
+    await expect(openFile(JSON.stringify(parsed), "correct horse")).rejects.toThrow(/wrong passphrase/i);
+  });
+
+  it("refuses a file written for another purpose", async () => {
+    const file = await sealFile({ format: "something-else", value: payload, passphrase: "correct horse" });
+    await expect(openFile(file, "correct horse", "test-backup")).rejects.toThrow(/Expected/);
+  });
+
+  it("refuses junk and short passphrases", async () => {
+    await expect(openFile("not json", "correct horse")).rejects.toThrow(/not a Fluid Wallet backup/);
+    await expect(sealFile({ format: "x", value: payload, passphrase: "short" })).rejects.toThrow(
+      /at least 8 characters/,
+    );
   });
 });

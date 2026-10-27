@@ -220,3 +220,95 @@ export class SecretVault {
     return decryptJson<T>(this.#requireKey(), secret);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Portable encrypted files
+// ---------------------------------------------------------------------------
+
+/** Envelope for a file the user may store outside the wallet. */
+export interface SealedFile {
+  format: string;
+  version: 1;
+  createdAt: number;
+  secret: EncryptedSecret;
+}
+
+/**
+ * Seals an arbitrary payload into a self-contained, passphrase-protected file.
+ *
+ * The point of a portable file is that it must be openable without the wallet
+ * that wrote it, so the KDF parameters travel with the ciphertext instead of
+ * being looked up from local storage. The passphrase is deliberately separate
+ * from the master password: a backup that only works on the machine it came
+ * from is not a backup.
+ */
+export async function sealFile(options: {
+  format: string;
+  value: unknown;
+  passphrase: string;
+  iterations?: number;
+}): Promise<string> {
+  if (options.passphrase.length < 8) {
+    throw new Error("A backup passphrase must be at least 8 characters long.");
+  }
+
+  const salt = generateSalt();
+  const iterations = options.iterations ?? DEFAULT_KDF_ITERATIONS;
+  const kdf: EncryptedSecret["kdf"] = {
+    name: "PBKDF2",
+    hash: "SHA-256",
+    iterations,
+    salt: toBase64(salt),
+  };
+
+  const key = await deriveKey(options.passphrase, salt, iterations);
+  const file: SealedFile = {
+    format: options.format,
+    version: 1,
+    createdAt: Date.now(),
+    secret: await encryptJson(key, options.value, kdf),
+  };
+  return JSON.stringify(file, null, 2);
+}
+
+/**
+ * Opens a file written by `sealFile`.
+ *
+ * Every failure — wrong passphrase, truncated file, edited ciphertext — lands
+ * on the same message on purpose: telling them apart would help someone
+ * attacking the file more than it helps the person who forgot a password.
+ */
+export async function openFile<T>(
+  text: string,
+  passphrase: string,
+  expectedFormat?: string,
+): Promise<T> {
+  let file: SealedFile;
+  try {
+    file = JSON.parse(text) as SealedFile;
+  } catch {
+    throw new Error("That file is not a Fluid Wallet backup.");
+  }
+
+  if (
+    typeof file !== "object" ||
+    file === null ||
+    file.version !== 1 ||
+    typeof file.format !== "string" ||
+    typeof file.secret?.ciphertext !== "string" ||
+    typeof file.secret?.kdf?.salt !== "string"
+  ) {
+    throw new Error("That file is not a Fluid Wallet backup.");
+  }
+  if (expectedFormat && file.format !== expectedFormat) {
+    throw new Error(`Expected a "${expectedFormat}" file, found "${file.format}".`);
+  }
+
+  const { kdf } = file.secret;
+  const key = await deriveKey(passphrase, fromBase64(kdf.salt), kdf.iterations);
+  try {
+    return await decryptJson<T>(key, file.secret);
+  } catch {
+    throw new Error("Could not open the backup: wrong passphrase, or the file was modified.");
+  }
+}
