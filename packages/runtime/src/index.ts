@@ -75,8 +75,50 @@ export class PermissionStore {
     return permission;
   }
 
+  /** Live grants, newest first. Used to rehydrate persisted connections. */
+  list(): FluidPermission[] {
+    return [...this.#byOrigin.values()]
+      .filter((permission) => !isPermissionExpired(permission, this.#now()))
+      .sort((left, right) => right.grantedAt - left.grantedAt);
+  }
+
+  /**
+   * Reinstates a permission loaded from storage.
+   *
+   * Unlike `grant`, this trusts the saved record verbatim — the persisted
+   * record already went through the approval flow, and re-running it would
+   * silently extend the expiry.
+   */
+  restore(permission: FluidPermission): void {
+    if (isPermissionExpired(permission, this.#now())) return;
+    this.#byOrigin.set(permission.origin, permission);
+  }
+
   revoke(origin: string): boolean {
     return this.#byOrigin.delete(origin);
+  }
+
+  /**
+   * Drops a subset of capabilities from a grant.
+   *
+   * An app can narrow its own access without losing the rest of the grant;
+   * when nothing is left the record is removed entirely.
+   */
+  revokeCapabilities(origin: string, capabilities: readonly FluidCapability[]): FluidPermission | null {
+    const permission = this.get(origin);
+    if (!permission) return null;
+
+    const remaining = permission.capabilities.filter(
+      (capability) => !capabilities.includes(capability),
+    );
+    if (remaining.length === 0) {
+      this.#byOrigin.delete(origin);
+      return null;
+    }
+
+    const updated: FluidPermission = { ...permission, capabilities: remaining };
+    this.#byOrigin.set(origin, updated);
+    return updated;
   }
 
   require(origin: string, capability: FluidCapability): FluidPermission {
@@ -163,6 +205,17 @@ export class SessionRegistry {
       );
     }
     return session;
+  }
+
+  /**
+   * Rehydrates a session after the service worker was suspended.
+   *
+   * Sessions are persisted because MV3 workers are killed between requests; a
+   * page that created a session before the restart must keep working.
+   */
+  restore(session: FluidSession): void {
+    if (this.#byId.has(session.id)) return;
+    this.#byId.set(session.id, { ...session });
   }
 
   close(id: string): void {
