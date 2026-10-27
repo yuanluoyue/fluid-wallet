@@ -34,7 +34,7 @@ export class PermissionStore {
   grant(
     origin: string,
     request: FluidPermissionRequest,
-    options: { ttlMs?: number } = {},
+    options: { ttlMs?: number | null } = {},
   ): FluidPermission {
     const capabilities = request.capabilities.filter(isGrantableCapability);
     const rejected = request.capabilities.filter((capability) => !isGrantableCapability(capability));
@@ -50,6 +50,8 @@ export class PermissionStore {
     }
 
     const grantedAt = this.#now();
+    // `null` is "until revoked"; `undefined` falls back to the default week.
+    const ttl = options.ttlMs === undefined ? DEFAULT_GRANT_TTL_MS : options.ttlMs;
     const permission: FluidPermission = {
       origin,
       appId: request.appId,
@@ -57,7 +59,7 @@ export class PermissionStore {
       models: request.models,
       capabilities,
       grantedAt,
-      expiresAt: grantedAt + (options.ttlMs ?? DEFAULT_GRANT_TTL_MS),
+      ...(ttl === null ? {} : { expiresAt: grantedAt + ttl }),
     };
 
     this.#byOrigin.set(origin, permission);
@@ -263,5 +265,87 @@ export class RateLimiter {
 
     recent.push(now);
     this.#hits.set(key, recent);
+  }
+}
+
+/** Requests per origin per day when the user has not chosen a number. */
+export const DEFAULT_DAILY_REQUESTS = 300;
+
+/** Storage the ledger writes through, so the runtime stays free of IndexedDB. */
+export interface BudgetStore {
+  read(day: string, origin: string): Promise<{ requests: number } | undefined>;
+  write(day: string, origin: string, value: { requests: number }): Promise<void>;
+}
+
+export interface BudgetSnapshot {
+  used: number;
+  limit: number;
+  day: string;
+  resetsAt: number;
+}
+
+/**
+ * Daily request budget per origin.
+ *
+ * A Web3 wallet does not need this — the chain refuses a transaction the
+ * account cannot pay for. Here the balance lives with the provider, so nothing
+ * outside the wallet stops a page from asking ten thousand times: a retry loop
+ * or a prompt-injected app burns the user's credit silently. `limit = 0` means
+ * unlimited, which is an explicit choice rather than a default.
+ */
+export class RequestBudget {
+  readonly #store: BudgetStore;
+  readonly #now: () => number;
+
+  constructor(store: BudgetStore, now: () => number = () => Date.now()) {
+    this.#store = store;
+    this.#now = now;
+  }
+
+  static dayKey(now: number): string {
+    return new Date(now).toISOString().slice(0, 10);
+  }
+
+  static resetsAt(now: number): number {
+    const date = new Date(now);
+    date.setUTCHours(24, 0, 0, 0);
+    return date.getTime();
+  }
+
+  /** Today's counter, without spending anything. */
+  async usage(origin: string, limit = 0): Promise<BudgetSnapshot> {
+    return this.#snapshot(origin, limit);
+  }
+
+  /**
+   * Counts one request against today's budget.
+   *
+   * Throws `BudgetExceeded` before the provider is called, so the refusal costs
+   * the user nothing.
+   */
+  async consume(origin: string, limit: number): Promise<BudgetSnapshot> {
+    const snapshot = await this.#snapshot(origin, limit);
+    if (limit > 0 && snapshot.used >= limit) {
+      throw new FluidError(
+        FluidErrorCode.BudgetExceeded,
+        `${origin} has used its ${limit} requests for ${snapshot.day}. It resets at ${new Date(snapshot.resetsAt).toISOString()}.`,
+        snapshot,
+      );
+    }
+
+    await this.#store.write(snapshot.day, origin, { requests: snapshot.used + 1 });
+    return { ...snapshot, used: snapshot.used + 1 };
+  }
+
+  async #snapshot(origin: string, limit: number): Promise<BudgetSnapshot> {
+    const now = this.#now();
+    const day = RequestBudget.dayKey(now);
+    const record = await this.#store.read(day, origin);
+    return {
+      used: record?.requests ?? 0,
+      limit,
+      day,
+      resetsAt: RequestBudget.resetsAt(now),
+    };
   }
 }

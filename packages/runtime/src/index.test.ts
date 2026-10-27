@@ -5,8 +5,23 @@ import {
   DEFAULT_GRANT_TTL_MS,
   PermissionStore,
   RateLimiter,
+  RequestBudget,
   SessionRegistry,
+  type BudgetStore,
 } from "./index";
+
+/** In-memory stand-in for the Dexie-backed counter. */
+function memoryBudgetStore(): BudgetStore {
+  const rows = new Map<string, { requests: number }>();
+  return {
+    async read(day, origin) {
+      return rows.get(`${day}:${origin}`);
+    },
+    async write(day, origin, value) {
+      rows.set(`${day}:${origin}`, value);
+    },
+  };
+}
 
 describe("PermissionStore", () => {
   it("refuses capabilities that must stay inside the wallet", () => {
@@ -49,6 +64,22 @@ describe("PermissionStore", () => {
       expect.objectContaining({ code: FluidErrorCode.Unauthorized }),
     );
   });
+
+  it("grants without an expiry when the user says always", () => {
+    const store = new PermissionStore();
+    const permission = store.grant("https://app.test", { capabilities: ["inference:text"] }, {
+      ttlMs: null,
+    });
+
+    expect(permission.expiresAt).toBeUndefined();
+  });
+
+  it("defaults to a week rather than forever", () => {
+    const store = new PermissionStore(() => 1_000);
+    const permission = store.grant("https://app.test", { capabilities: ["inference:text"] });
+
+    expect(permission.expiresAt).toBe(1_000 + DEFAULT_GRANT_TTL_MS);
+  });
 });
 
 describe("SessionRegistry", () => {
@@ -83,5 +114,44 @@ describe("RateLimiter", () => {
     expect(() => limiter.consume("https://app.test")).toThrow(
       expect.objectContaining({ code: FluidErrorCode.RateLimited }),
     );
+  });
+});
+
+describe("RequestBudget", () => {
+  it("refuses the request that would exceed the day's limit", async () => {
+    const budget = new RequestBudget(memoryBudgetStore(), () => Date.UTC(2026, 9, 27, 12));
+
+    await budget.consume("https://app.test", 2);
+    await budget.consume("https://app.test", 2);
+
+    await expect(budget.consume("https://app.test", 2)).rejects.toMatchObject({
+      code: FluidErrorCode.BudgetExceeded,
+    });
+  });
+
+  it("counts separately per origin", async () => {
+    const budget = new RequestBudget(memoryBudgetStore(), () => 0);
+
+    await budget.consume("https://a.test", 1);
+    await expect(budget.consume("https://b.test", 1)).resolves.toMatchObject({ used: 1 });
+  });
+
+  it("resets when the UTC day rolls over", async () => {
+    let now = Date.UTC(2026, 9, 27, 23, 59);
+    const budget = new RequestBudget(memoryBudgetStore(), () => now);
+
+    await budget.consume("https://app.test", 1);
+    now += 2 * 60_000;
+
+    expect(await budget.usage("https://app.test", 1)).toMatchObject({ used: 0, day: "2026-10-28" });
+    await expect(budget.consume("https://app.test", 1)).resolves.toMatchObject({ used: 1 });
+  });
+
+  it("treats zero as unlimited", async () => {
+    const budget = new RequestBudget(memoryBudgetStore(), () => 0);
+
+    for (let index = 0; index < 5; index += 1) {
+      await expect(budget.consume("https://app.test", 0)).resolves.toBeTruthy();
+    }
   });
 });

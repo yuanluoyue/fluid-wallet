@@ -3,7 +3,8 @@ import type { FluidPermission, FluidRole, FluidSessionStatus } from "@fluid-wall
 import Dexie, { type EntityTable } from "dexie";
 
 export const FLUID_DATABASE_NAME = "fluid-wallet";
-export const FLUID_SCHEMA_VERSION = 1;
+/** Current IndexedDB schema version. Bump together with a new `version(n)` block. */
+export const FLUID_SCHEMA_VERSION = 2;
 
 /** A configured model provider. The secret is an encrypted envelope, never a raw key. */
 export interface ProviderRecord {
@@ -91,6 +92,20 @@ export interface SettingRecord {
   updatedAt: number;
 }
 
+/**
+ * Per-origin request counter for one UTC day.
+ *
+ * The key is `day:origin` so a day boundary needs no cleanup job: yesterday's
+ * rows simply stop matching today's key and are pruned on write.
+ */
+export interface UsageRecord {
+  key: string;
+  day: string;
+  origin: string;
+  requests: number;
+  updatedAt: number;
+}
+
 export class FluidDatabase extends Dexie {
   providers!: EntityTable<ProviderRecord, "id">;
   connections!: EntityTable<ConnectionRecord, "origin">;
@@ -100,11 +115,12 @@ export class FluidDatabase extends Dexie {
   toolCalls!: EntityTable<ToolCallRecord, "id">;
   inferenceLogs!: EntityTable<InferenceLogRecord, "id">;
   settings!: EntityTable<SettingRecord, "key">;
+  usage!: EntityTable<UsageRecord, "key">;
 
   constructor(name: string = FLUID_DATABASE_NAME) {
     super(name);
 
-    this.version(FLUID_SCHEMA_VERSION).stores({
+    this.version(1).stores({
       providers: "id, kind, updatedAt",
       connections: "origin, updatedAt",
       sessions: "id, origin, status, createdAt",
@@ -113,6 +129,12 @@ export class FluidDatabase extends Dexie {
       toolCalls: "id, sessionId, status, createdAt",
       inferenceLogs: "id, origin, startedAt, status",
       settings: "key",
+    });
+
+    // Additive only: existing stores are listed for the first time they appear,
+    // so a wallet created before the budget existed keeps every row it had.
+    this.version(2).stores({
+      usage: "key, origin, day, updatedAt",
     });
   }
 }
