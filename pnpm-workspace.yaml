@@ -3,6 +3,14 @@ packages:
   - "packages/*"
   - "examples/*"
 
+# Explicit allow-list: dependency install scripts never run unless listed here.
+# esbuild and workerd download their platform binaries in a postinstall step;
+# sharp is only used by Next's image pipeline when it is enabled.
+allowBuilds:
+  esbuild: true
+  sharp: true
+  workerd: true
+
 # Single source of truth for versions shared across the workspace.
 # Reference with `"pkg": "catalog:"` in any workspace package.json.
 catalog:
@@ -14,6 +22,22 @@ catalog:
   react-dom: ^19.2.4
   typescript: ^5.9.3
   vitest: ^4.1.12
+
+minimumReleaseAgeExclude:
+  - '@ai-sdk/gateway@4.0.127'
+  - '@ai-sdk/provider-utils@5.0.69'
+  - '@typescript-eslint/eslint-plugin@8.72.1'
+  - '@typescript-eslint/parser@8.72.1'
+  - '@typescript-eslint/project-service@8.72.1'
+  - '@typescript-eslint/scope-manager@8.72.1'
+  - '@typescript-eslint/tsconfig-utils@8.72.1'
+  - '@typescript-eslint/type-utils@8.72.1'
+  - '@typescript-eslint/types@8.72.1'
+  - '@typescript-eslint/typescript-estree@8.72.1'
+  - '@typescript-eslint/utils@8.72.1'
+  - '@typescript-eslint/visitor-keys@8.72.1'
+  - ai@7.0.154
+  - typescript-eslint@8.72.1
 
 # Explicit allow-list: dependency install scripts never run unless listed here.
 onlyBuiltDependencies:
