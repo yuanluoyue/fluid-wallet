@@ -8,15 +8,16 @@ manage model settings separately. Fluid Wallet moves that concern into one place
 a browser wallet that owns the credentials, and a protocol that lets any app ask
 for inference without ever touching them.
 
-> Status: **MVP-01 scaffold**. The protocol, the SDK, the mock wallet and the
-> extension skeleton exist and are tested. Vault unlock, DeepSeek routing and the
-> permission dialog land in MVP-02.
+> Status: **MVP-03**. The wallet works end to end: encrypted vault, provider
+> management, connect approval, scoped permissions, streamed inference,
+> cancellation, an activity log, and a raw proxy path so apps can keep using
+> their provider's own SDK. Store packaging and tool-call round trips are next.
 
 ## Principles
 
 - **User-owned credentials** — keys live in the wallet, encrypted at rest.
 - **Connect once** — a scoped grant covers every app on that origin.
-- **Local-first** — no account server, no proxy, no telemetry.
+- **Local-first** — no account server, no cloud relay, no telemetry.
 - **Open protocol** — versioned and documented, so a third party can ship a
   compatible wallet.
 - **Bring your own tools** — tool definitions and execution stay in the app.
@@ -46,7 +47,7 @@ apps/
   playground/     Protocol console: detect, connect, stream
 packages/
   protocol/       Wire types, methods, error codes, validators   (published)
-  sdk/            Client: connection, sessions, streaming        (published)
+  sdk/            Client, connectFluid, createFetch              (published)
   ai-sdk/         Vercel AI SDK transport adapter                (published)
   react/          Provider and hooks                             (published)
   runtime/        Origin checks, permissions, sessions, limits   (internal)
@@ -77,7 +78,68 @@ pnpm dev:playground    # http://localhost:5174
 pnpm dev:website       # http://localhost:3000
 ```
 
+## Deploying the website
+
+`apps/website` deploys to Cloudflare Workers through OpenNext, the same setup as
+ChembioTube: `next build --webpack` → `opennextjs-cloudflare build` → `wrangler
+deploy`. The site is fully prerendered, so Workers Cache serves hits without
+executing the Worker at all, and cache interception keeps a cold miss under the
+free plan's CPU ceiling.
+
+```bash
+pnpm --filter @fluid-wallet/website deploy    # builds and deploys
+
+# local edge preview (workerd, real bindings)
+pnpm --filter @fluid-wallet/website preview
+```
+
+First deploy needs `wrangler login` (or `CLOUDFLARE_API_TOKEN`). The Worker name
+is `fluid-wallet-website`; add a custom domain in `wrangler.jsonc` when DNS is
+ready. There is no D1 binding — the wallet keeps everything in the browser, and
+the site needs no database.
+
 ## Using the SDK
+
+There are two ways in. Pick by how much of the request the app wants to own.
+
+### 1. Keep your provider SDK (recommended for existing apps)
+
+`connectFluid()` connects, asks for consent, opens a session and returns a
+`fetch`. Hand that to the provider SDK you already use and nothing else changes —
+streaming, tools and JSON mode all work because the request is passed through
+untouched.
+
+```ts
+import { connectFluid } from "@fluid-wallet/sdk";
+import { createOpenAI } from "@ai-sdk/openai";
+import { streamText } from "ai";
+
+const fluid = await connectFluid({
+  appName: "ChemBioTube",
+  providerId: "deepseek",
+  reason: "Explain the selected sequence.",
+});
+
+// Any provider package that accepts a `fetch` option works: @ai-sdk/deepseek,
+// @ai-sdk/openai, or the official `openai` client.
+const deepseek = createOpenAI({
+  apiKey: "fluid",                                  // placeholder: the wallet injects the real key
+  baseURL: "https://api.deepseek.com/v1",
+  fetch: fluid.createFetch(),
+});
+
+const result = streamText({ model: deepseek("deepseek-chat"), messages, tools });
+```
+
+The app only supplies a *path*. The scheme, host and key come from the provider
+the user configured, so a compromised page cannot point the wallet anywhere else.
+This path needs the `inference:proxy` capability, which `connectFluid` requests
+and the approval window spells out.
+
+### 2. Let the wallet shape the request
+
+Use the structured API when the app wants the wallet to record the conversation
+and keep provider details out of the client entirely:
 
 ```ts
 import { FluidClient } from "@fluid-wallet/sdk";
@@ -105,16 +167,37 @@ for await (const event of inference.events) {
 `session` and per-request `inference` state apart on purpose — a single
 `isConnected` flag hides exactly the failures users hit in practice.
 
+### Working without the extension
+
+`connectFluid()` falls back to calling DeepSeek directly when no wallet answers,
+but only if a development key is present:
+
+```bash
+# .env.local — Vite needs the VITE_ prefix, Next.js does not
+FLUID_DEV_API_KEY=sk-...
+```
+
+```ts
+const fluid = await connectFluid({ appName: "My app" });
+// mode === "wallet" with the extension, "dev" without it
+```
+
+Nothing else in the app changes: `fluid.createFetch()` resolves URLs with the
+same helper the wallet uses. The fallback refuses to run in a production build,
+and it is a convenience, never a security boundary.
+
 ## Testing without a browser
 
-`@fluid-wallet/test-kit` ships an in-memory wallet that speaks the protocol:
+`@fluid-wallet/test-kit` ships an in-memory wallet that speaks the protocol,
+including `inference.proxy`:
 
 ```ts
 import { createMockWallet } from "@fluid-wallet/test-kit";
-import { FluidClient, BridgeTransport } from "@fluid-wallet/sdk";
+import { FluidClient, BridgeTransport, connectFluid } from "@fluid-wallet/sdk";
 
 const wallet = createMockWallet({ permissionMode: "auto" });
 const client = new FluidClient({ transport: new BridgeTransport(wallet) });
+const fluid = await connectFluid({ client });
 ```
 
 This is also the conformance target for third-party wallet implementations.
@@ -124,9 +207,25 @@ This is also the conformance target for third-party wallet implementations.
 | Milestone | Scope                                                                 | State |
 | --------- | --------------------------------------------------------------------- | ----- |
 | MVP-01    | Monorepo, protocol, SDK, mock wallet, conformance tests                | done  |
-| MVP-02    | Vault unlock, DeepSeek config, permission dialog, streamed chat        | next  |
-| MVP-03    | Conversations, call logs, AI SDK adapter, React hooks                  | —     |
-| MVP-04    | Custom tools, docs site, vanilla + React examples                      | —     |
+| MVP-02    | Encrypted vault, provider config, approval dialog, streamed inference  | done  |
+| MVP-03    | Conversations, activity log, AI SDK adapter, React hooks               | done  |
+| MVP-04    | Tool-call round trips, Firefox packaging, store release, docs site      | next  |
+
+Known gaps, stated plainly:
+
+- **Tool calls** are streamed to the app and persisted, but the wallet does not
+  yet wait for a tool result and continue the turn — the app drives that loop.
+- **Raw proxy requests are opaque.** The wallet sees a path, a status and a byte
+  count, never the body. That is the privacy trade-off that makes drop-in SDK
+  compatibility possible, and it also means the structured path is the only one
+  with conversation history and per-request token accounting.
+- **Approval resilience**: if Chrome kills the service worker while the approval
+  window is open, the pending `wallet.connect` fails; the page must retry.
+- **Provider breadth**: DeepSeek plus any OpenAI-compatible endpoint. No OAuth,
+  no subscription-token flow, no automatic model catalogue refresh. Deliberate:
+  every advertised provider is an API surface to keep honest.
+- **Budgets**: rate limiting is per origin, but there is no per-app spending cap,
+  and a raw request cannot be priced without reading it.
 
 Explicitly out of scope for now: hosted billing, cloud accounts, team
 permissions, an app directory, and full Vercel AI SDK feature parity.
