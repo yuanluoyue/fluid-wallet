@@ -1,7 +1,7 @@
 const principles = [
   {
     title: "User-owned credentials",
-    body: "The wallet holds your DeepSeek key locally. Apps never receive it — they receive answers.",
+    body: "The wallet holds your DeepSeek key, encrypted on this device. Apps never receive it — they receive answers.",
   },
   {
     title: "Connect once",
@@ -17,11 +17,29 @@ const principles = [
   },
 ];
 
+const steps = [
+  {
+    label: "01",
+    title: "The wallet keeps the key",
+    body: "AES-GCM under a password-derived key, decrypted only inside the extension's service worker.",
+  },
+  {
+    label: "02",
+    title: "The app asks for a scope",
+    body: "Capabilities, providers and models are approved once per origin, and revocable at any time.",
+  },
+  {
+    label: "03",
+    title: "Tokens stream back",
+    body: "The wallet calls the provider and relays deltas over the page bridge. The key never crosses it.",
+  },
+];
+
 export default function HomePage() {
   return (
     <main>
       <div className="shell">
-        <p className="eyebrow">Fluid Protocol · preview</p>
+        <p className="eyebrow">Open protocol · local-first · preview</p>
         <h1>
           Your models.
           <br />
@@ -33,13 +51,23 @@ export default function HomePage() {
         </p>
 
         <div className="actions">
-          <a className="primary" href="/docs/quick-start">
-            Quick start
+          <a className="primary" href="/docs">
+            Read the docs
           </a>
           <a className="ghost" href="https://github.com/fluid-wallet/fluid-wallet">
             Source
           </a>
         </div>
+
+        <section className="grid" aria-label="How it works">
+          {steps.map((step) => (
+            <article key={step.label} className="card">
+              <p className="step-label">{step.label}</p>
+              <h2>{step.title}</h2>
+              <p>{step.body}</p>
+            </article>
+          ))}
+        </section>
 
         <section className="grid" aria-label="Design principles">
           {principles.map((item) => (
@@ -51,12 +79,12 @@ export default function HomePage() {
         </section>
 
         <section className="status">
-          <h2>Build status</h2>
+          <h2>Status</h2>
           <ul>
-            <li>MVP-01 · protocol, SDK and mock wallet — in progress</li>
-            <li>MVP-02 · extension vault and DeepSeek routing — next</li>
-            <li>MVP-03 · conversations, logs and AI SDK adapter — planned</li>
-            <li>MVP-04 · custom tools and docs site — planned</li>
+            <li>Wallet · encrypted vault, provider management, connect approval — working</li>
+            <li>Runtime · scoped permissions, sessions, streaming, cancellation, activity log — working</li>
+            <li>SDK · vanilla TypeScript client plus React hooks and an AI SDK transport — working</li>
+            <li>Next · tool-call round trips, Firefox packaging, store release</li>
           </ul>
         </section>
       </div>

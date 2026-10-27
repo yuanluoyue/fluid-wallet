@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": "./worker-entry.mjs",
+  "name": "fluid-wallet-website",
+  "compatibility_date": "2025-07-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  // Workers Cache: on a hit the Worker does not run at all, so a prerendered
+  // page costs zero CPU. The cache key includes the Worker version, so every
+  // deploy invalidates it automatically — no stale HTML after a release.
+  "cache": {
+    "enabled": true
+  },
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": false
+    },
+    "traces": {
+      "enabled": false
+    }
+  }
+}
