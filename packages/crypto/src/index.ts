@@ -77,6 +77,47 @@ export async function deriveKey(
   );
 }
 
+/**
+ * Generates the long-lived data key that actually protects stored secrets.
+ *
+ * Records are encrypted with a data key rather than with the password-derived
+ * key directly: changing the master password then only rewraps one small blob
+ * instead of re-encrypting every credential the user ever saved.
+ */
+export async function generateDataKey(): Promise<CryptoKey> {
+  return crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, [
+    "encrypt",
+    "decrypt",
+  ]);
+}
+
+export async function exportDataKey(key: CryptoKey): Promise<string> {
+  return toBase64(new Uint8Array(await crypto.subtle.exportKey("raw", key)));
+}
+
+export async function importDataKey(raw: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey("raw", fromBase64(raw), { name: "AES-GCM", length: 256 }, true, [
+    "encrypt",
+    "decrypt",
+  ]);
+}
+
+/** Seals the data key under the password-derived key. */
+export async function wrapDataKey(
+  kek: CryptoKey,
+  dataKey: CryptoKey,
+  kdf: EncryptedSecret["kdf"],
+): Promise<EncryptedSecret> {
+  return encryptString(kek, await exportDataKey(dataKey), kdf);
+}
+
+export async function unwrapDataKey(
+  kek: CryptoKey,
+  wrapped: EncryptedSecret,
+): Promise<CryptoKey> {
+  return importDataKey(await decryptString(kek, wrapped));
+}
+
 export async function encryptString(
   key: CryptoKey,
   plaintext: string,

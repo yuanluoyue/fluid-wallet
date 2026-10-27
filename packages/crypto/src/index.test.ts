@@ -1,6 +1,61 @@
 import { describe, expect, it } from "vitest";
 
-import { SecretVault } from "./index";
+import {
+  DEFAULT_KDF_ITERATIONS,
+  SecretVault,
+  decryptString,
+  deriveKey,
+  encryptString,
+  exportDataKey,
+  generateDataKey,
+  generateSalt,
+  importDataKey,
+  unwrapDataKey,
+  wrapDataKey,
+} from "./index";
+
+const KDF = {
+  name: "PBKDF2" as const,
+  hash: "SHA-256" as const,
+  iterations: DEFAULT_KDF_ITERATIONS,
+  salt: "",
+};
+
+describe("data key wrapping", () => {
+  it("wraps and unwraps the data key with the password-derived key", async () => {
+    const salt = generateSalt();
+    const kek = await deriveKey("master-password", salt, 1_000);
+    const dataKey = await generateDataKey();
+
+    const wrapped = await wrapDataKey(kek, dataKey, { ...KDF, salt: "ignored" });
+    const raw = await exportDataKey(dataKey);
+    expect(wrapped.ciphertext).not.toContain(raw);
+
+    const restored = await unwrapDataKey(kek, wrapped);
+    expect(await exportDataKey(restored)).toBe(raw);
+
+    const sealed = await encryptString(restored, "sk-live-key", { ...KDF, salt: "ignored" });
+    expect(await decryptString(dataKey, sealed)).toBe("sk-live-key");
+  });
+
+  it("fails to unwrap with a different password", async () => {
+    const salt = generateSalt();
+    const dataKey = await generateDataKey();
+    const wrapped = await wrapDataKey(
+      await deriveKey("right", salt, 1_000),
+      dataKey,
+      { ...KDF, salt: "ignored" },
+    );
+
+    await expect(unwrapDataKey(await deriveKey("wrong", salt, 1_000), wrapped)).rejects.toThrow();
+  });
+
+  it("round-trips a raw key through export and import", async () => {
+    const dataKey = await generateDataKey();
+    const raw = await exportDataKey(dataKey);
+    expect(await exportDataKey(await importDataKey(raw))).toBe(raw);
+  });
+});
 
 describe("SecretVault", () => {
   it("seals and reopens a secret without leaking plaintext", async () => {
