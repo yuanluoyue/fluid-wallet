@@ -20,6 +20,7 @@ import {
   type FluidPermissionRequest,
   type FluidProvider,
   type FluidProxyParams,
+  type FluidQuota,
   type FluidProxyResponse,
   type FluidRequest,
   type FluidResponse,
@@ -49,6 +50,8 @@ export interface MockWalletOptions {
   reply?: MockReply;
   /** Answer for `inference.proxy`; defaults to echoing the request back as JSON. */
   proxy?: (params: FluidProxyParams) => MockProxyResult | Promise<MockProxyResult>;
+  /** Answer for `usage.get`; defaults to an empty counter with a 300/day cap. */
+  usage?: FluidQuota;
   /** Delay between stream chunks, in milliseconds. */
   chunkDelayMs?: number;
   now?: () => number;
@@ -366,6 +369,17 @@ export function createMockWallet(options: MockWalletOptions = {}): MockWallet {
       case FluidMethod.ConversationList:
         requirePermission();
         return { result: { items: [] } };
+
+      case FluidMethod.UsageGet:
+        requirePermission();
+        return {
+          result: options.usage ?? {
+            used: 0,
+            limit: 300,
+            day: new Date(now()).toISOString().slice(0, 10),
+            resetsAt: now() + 60_000,
+          },
+        };
 
       default:
         throw new FluidError(

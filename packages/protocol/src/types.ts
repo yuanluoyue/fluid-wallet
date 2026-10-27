@@ -122,6 +122,24 @@ export interface FluidWalletInfo {
   defaultModel?: string;
 }
 
+/**
+ * The caller's own consumption, so an app can say "12 requests left today"
+ * instead of surfacing a failure the user cannot act on.
+ *
+ * Named `FluidQuota`, not `FluidUsage`: "usage" already means token counts in
+ * an inference result, and the two numbers answer different questions.
+ */
+export interface FluidQuota {
+  /** Requests charged to this origin today (UTC). */
+  used: number;
+  /** Daily cap the wallet enforces; `0` means unlimited. */
+  limit: number;
+  /** The UTC day being counted, `YYYY-MM-DD`. */
+  day: string;
+  /** Epoch ms when the counter rolls over. */
+  resetsAt: number;
+}
+
 // ---------------------------------------------------------------------------
 // Providers and models
 // ---------------------------------------------------------------------------

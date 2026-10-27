@@ -67,10 +67,13 @@ Rules:
 | `conversation.list`      | `conversation:read`    | `FluidPage<FluidConversation>`  |
 | `conversation.get`       | `conversation:read`    | `FluidConversationDetail`       |
 | `conversation.append`    | `conversation:write`   | `{ ok: true }`                  |
+| `usage.get`              | `activity:read`        | `FluidQuota`                    |
 | `activity.list`          | `activity:read`        | `FluidPage<FluidActivityEntry>` |
 
-`conversation.*` and `activity.*` may stay unimplemented in a compatible wallet:
-the SDK degrades to a `MethodNotFound` error rather than assuming support.
+`conversation.*`, `usage.*` and `activity.*` may stay unimplemented in a
+compatible wallet: the SDK degrades to a `MethodNotFound` error rather than
+assuming support. `client.usage()` returns `null` in that case, so a UI can hide
+the counter instead of failing to start.
 
 ## 5. Raw requests
 

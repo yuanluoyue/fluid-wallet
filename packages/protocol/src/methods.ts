@@ -15,6 +15,7 @@ import type {
   FluidProxyParams,
   FluidProxyResponse,
   FluidSession,
+  FluidQuota,
   FluidWalletInfo,
 } from "./types";
 
@@ -40,6 +41,8 @@ export interface FluidMethodParams {
   "conversation.get": { conversationId: string };
   "conversation.append": { conversationId: string; messages: FluidMessage[] };
 
+  "usage.get": undefined;
+
   "activity.list": { limit?: number; cursor?: string } | undefined;
 }
 
@@ -64,6 +67,8 @@ export interface FluidMethodResults {
   "conversation.list": FluidPage<FluidConversation>;
   "conversation.get": FluidConversationDetail;
   "conversation.append": { ok: true };
+
+  "usage.get": FluidQuota;
 
   "activity.list": FluidPage<FluidActivityEntry>;
 }
@@ -91,6 +96,7 @@ export const FluidMethod = {
   ConversationList: "conversation.list",
   ConversationGet: "conversation.get",
   ConversationAppend: "conversation.append",
+  UsageGet: "usage.get",
   ActivityList: "activity.list",
 } as const satisfies Record<string, FluidMethodName>;
 
@@ -131,6 +137,14 @@ export const FLUID_METHOD_CAPABILITIES: Record<FluidMethodName, FluidCapability 
   "conversation.list": "conversation:read",
   "conversation.get": "conversation:read",
   "conversation.append": "conversation:write",
+
+  /**
+   * Budget read sits behind `activity:read` rather than a capability of its
+   * own: it is the same question ("how much have I used"), and inventing a new
+   * capability would force every existing grant through consent again just to
+   * render a counter.
+   */
+  "usage.get": "activity:read",
 
   "activity.list": "activity:read",
 };
