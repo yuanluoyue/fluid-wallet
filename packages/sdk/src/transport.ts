@@ -57,10 +57,12 @@ function withDeadline<T>(promise: Promise<T>, options: FluidRequestOptions): Pro
   const timeoutMs = options.timeoutMs ?? FLUID_LIMITS.requestTimeoutMs;
 
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
+    // A zero deadline means "wait indefinitely"; only used by long-running
+    // catalog operations such as a model listing that probes the provider.
+    const timer = timeoutMs > 0 ? setTimeout(() => {
       cleanup();
       reject(new FluidError(FluidErrorCode.Timeout, `Request timed out after ${timeoutMs}ms.`));
-    }, timeoutMs);
+    }, timeoutMs) : undefined;
 
     const onAbort = (): void => {
       cleanup();
@@ -68,7 +70,7 @@ function withDeadline<T>(promise: Promise<T>, options: FluidRequestOptions): Pro
     };
 
     const cleanup = (): void => {
-      clearTimeout(timer);
+      if (timer !== undefined) clearTimeout(timer);
       options.signal?.removeEventListener("abort", onAbort);
     };
 

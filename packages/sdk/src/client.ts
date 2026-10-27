@@ -1,5 +1,6 @@
 import {
   FLUID_EVENTS,
+  FLUID_LIMITS,
   FluidError,
   FluidErrorCode,
   FluidMethod,
@@ -144,6 +145,16 @@ export class FluidClient {
     options?: FluidRequestOptions,
   ): Promise<FluidResultOf<M>> {
     return this.#call<FluidResultOf<M>>(method, params, options);
+  }
+
+  /**
+   * Subscribes to every protocol event.
+   *
+   * `createFetch` owns a long-lived request and needs the raw event stream with
+   * its own request id, not the aggregated state the hooks use.
+   */
+  onEvent(handler: (event: FluidEvent) => void): () => void {
+    return this.#transport.onEvent(handler);
   }
 
   /**
@@ -347,6 +358,9 @@ export class FluidClient {
     try {
       const result = await this.#call<FluidInferenceResult>(FluidMethod.InferenceCreate, params, {
         requestId,
+        // Generations are long by nature; the per-request default would abort
+        // perfectly healthy streams.
+        timeoutMs: FLUID_LIMITS.inferenceTimeoutMs,
       });
       this.#updateInference(requestId, {
         status: "done",
