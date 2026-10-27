@@ -2,6 +2,7 @@
   "extends": "./.wxt/tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
+    "jsx": "react-jsx",
     "paths": {
       "@fluid-wallet/crypto": ["../../packages/crypto/src/index.ts"],
       "@fluid-wallet/protocol": ["../../packages/protocol/src/index.ts"],

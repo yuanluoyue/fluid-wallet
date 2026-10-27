@@ -68,6 +68,12 @@ function installBridge(): void {
     protocolVersion: PROTOCOL_VERSION,
     request(request: FluidRequest): Promise<FluidResponse> {
       return new Promise<FluidResponse>((resolve) => {
+        // Inference streams for as long as the model produces tokens, so it
+        // gets its own deadline instead of the generic request timeout.
+        const deadlineMs = request.method.startsWith("inference.")
+          ? FLUID_LIMITS.inferenceTimeoutMs
+          : FLUID_LIMITS.requestTimeoutMs;
+
         const timer = window.setTimeout(() => {
           pending.delete(request.id);
           resolve({
@@ -78,7 +84,7 @@ function installBridge(): void {
               message: "Fluid Wallet did not respond in time.",
             },
           });
-        }, FLUID_LIMITS.requestTimeoutMs);
+        }, deadlineMs);
 
         pending.set(request.id, { resolve, timer });
         window.postMessage(

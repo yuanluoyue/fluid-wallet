@@ -35,6 +35,47 @@ Out of scope for `0.1.0`:
 - The unlock password is never stored — not in `chrome.storage`, not in
   IndexedDB, not in memory beyond the derivation call.
 
+### 2.1 Data-key indirection
+
+Stored credentials are **not** encrypted with the password-derived key directly.
+The layout is:
+
+```
+password ──PBKDF2(210k, salt)──► KEK        (CryptoKey, non-extractable)
+                                 │
+                                 └─ AES-GCM wrap ─► data key (random, 32 bytes)
+                                                      │
+                                    per-record AES-GCM ┘  apiKey, settings
+```
+
+Why the extra layer:
+
+- A password change rewraps one ~60-byte blob instead of re-encrypting every
+  provider record, so it is atomic and cannot half-fail.
+- The KDF parameters (`salt`, `iterations`) live in one versioned envelope, so
+  raising the iteration count later does not orphan existing ciphertexts.
+- Records carry the KDF metadata they were sealed under, which keeps the format
+  self-describing if a second KDF is ever added.
+
+### 2.2 Unlock lifetime and auto-lock
+
+The unwrapped data key is held in two places only:
+
+1. Service-worker memory (lost on suspension).
+2. `browser.storage.session` — memory-only, cleared when the browser closes,
+   unreachable from content scripts and pages.
+
+That is a deliberate trade: it lets an unlocked wallet survive Chrome killing the
+worker mid-conversation, while still requiring the password again after a browser
+restart. An idle timeout (default 15 minutes, user-configurable, `0` disables)
+is enforced in `requireDataKey()`, the single function every credential read goes
+through — a caller cannot skip it by using a lower-level helper.
+
+Threat model limits, stated honestly: `storage.session` is protected by the
+extension boundary, not by the password. Malware running as the user, or a
+malicious extension with equivalent privileges, can read it. The password
+protects data at rest on disk, not a compromised browser.
+
 ## 3. Origin validation
 
 - The only trusted source of an origin is the message sender metadata
@@ -78,10 +119,23 @@ Out of scope for `0.1.0`:
 
 ## 7. Permission surface
 
-Requesting `<all_urls>` for a content script means "read and change all your data
-on all websites". The scaffold declares it to make the bridge work in
-development; MVP-02 must switch to on-demand injection (`activeTab` +
-`chrome.scripting`) and document the change in the store listing.
+The bridge needs to exist before the app calls `detect()`, which rules out
+on-demand injection (`activeTab` + `chrome.scripting`): a page cannot ask for a
+wallet that was never injected. The wallet therefore keeps two static content
+scripts on `http://*/*` and `https://*/*`:
+
+- `bridge.ts` (MAIN world) installs `window.fluid` and forwards opaque envelopes.
+- `content.ts` (isolated world) relays to the service worker and back.
+
+Neither reads page content, DOM, cookies or storage; both only ever touch
+`window.postMessage` envelopes tagged with the protocol channel. The cost is the
+store permission warning "read and change all your data on all websites", which
+must be justified in the listing copy — it is a real trade, not a free one.
+
+Provider endpoints are different: `host_permissions` only pre-grants DeepSeek,
+and every other endpoint is requested at the moment the user adds it
+(`optional_host_permissions`), so installing the wallet does not hand it access
+to arbitrary hosts.
 
 ## 8. Review checklist before a public release
 

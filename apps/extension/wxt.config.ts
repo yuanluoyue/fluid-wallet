@@ -11,7 +11,11 @@ export default defineConfig({
     name: "Fluid Wallet",
     description: "Local-first LLM wallet for web AI applications.",
     permissions: ["storage"],
+    // Only the default provider is pre-granted. Every other endpoint is asked
+    // for at the moment the user adds it, so installing the wallet does not
+    // hand it access to every host on the web.
     host_permissions: ["https://api.deepseek.com/*"],
+    optional_host_permissions: ["https://*/*"],
   },
   vite: () => ({
     resolve: {
