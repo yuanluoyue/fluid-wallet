@@ -1,4 +1,4 @@
-import { openFile, sealFile } from "@fluid-wallet/crypto";
+import { openFile, sealFile } from "@fluid-wallet/core";
 import { FluidError, FluidErrorCode } from "@fluid-wallet/protocol";
 
 import { db } from "./db";

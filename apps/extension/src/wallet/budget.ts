@@ -3,7 +3,7 @@ import {
   RequestBudget,
   type BudgetSnapshot,
   type BudgetStore,
-} from "@fluid-wallet/runtime";
+} from "@fluid-wallet/core";
 
 import { db, getSetting, setSetting } from "./db";
 

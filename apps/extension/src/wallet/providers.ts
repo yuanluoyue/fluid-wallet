@@ -5,8 +5,11 @@ import {
   type FluidModelCapability,
   type FluidProvider,
 } from "@fluid-wallet/protocol";
-import { createOpenAICompatibleProvider, type ProviderAdapter } from "@fluid-wallet/providers";
-import type { ProviderRecord } from "@fluid-wallet/storage";
+import {
+  createOpenAICompatibleProvider,
+  type ProviderAdapter,
+  type ProviderRecord,
+} from "@fluid-wallet/core";
 
 import { db, getSetting, setSetting } from "./db";
 import { openString, sealString } from "./vault";

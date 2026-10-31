@@ -30,12 +30,9 @@ export default defineConfig({
   vite: () => ({
     resolve: {
       alias: {
-        "@fluid-wallet/crypto": pkg("crypto"),
+        "@fluid-wallet/core": pkg("core"),
         "@fluid-wallet/protocol": pkg("protocol"),
-        "@fluid-wallet/providers": pkg("providers"),
-        "@fluid-wallet/runtime": pkg("runtime"),
         "@fluid-wallet/sdk": pkg("sdk"),
-        "@fluid-wallet/storage": pkg("storage"),
       },
     },
   }),

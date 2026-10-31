@@ -1,9 +1,9 @@
 {
-  "name": "@fluid-wallet/runtime",
+  "name": "@fluid-wallet/core",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Trusted runtime that lives inside the extension: origin checks, permission policies, sessions and rate limits.",
+  "description": "Wallet kernel for Fluid Wallet: key vault, local storage, provider adapters and the permission runtime.",
   "license": "MIT",
   "sideEffects": false,
   "main": "./dist/index.js",
@@ -21,10 +21,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@fluid-wallet/crypto": "workspace:^",
     "@fluid-wallet/protocol": "workspace:^",
-    "@fluid-wallet/providers": "workspace:^",
-    "@fluid-wallet/storage": "workspace:^"
+    "dexie": "catalog:"
   },
   "devDependencies": {
     "typescript": "catalog:",

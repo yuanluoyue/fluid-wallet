@@ -9,7 +9,7 @@ import {
   unwrapDataKey,
   wrapDataKey,
   type EncryptedSecret,
-} from "@fluid-wallet/crypto";
+} from "@fluid-wallet/core";
 import { FluidError, FluidErrorCode, FLUID_EVENTS } from "@fluid-wallet/protocol";
 import { browser } from "wxt/browser";
 

@@ -1,4 +1,4 @@
-import type { EncryptedSecret } from "@fluid-wallet/crypto";
+import type { EncryptedSecret } from "../crypto";
 import type { FluidPermission, FluidRole, FluidSessionStatus } from "@fluid-wallet/protocol";
 import Dexie, { type EntityTable } from "dexie";
 

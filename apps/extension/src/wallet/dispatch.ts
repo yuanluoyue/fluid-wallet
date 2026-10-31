@@ -21,7 +21,7 @@ import {
   type FluidSession,
   type FluidWalletInfo,
 } from "@fluid-wallet/protocol";
-import { PermissionStore, RateLimiter, SessionRegistry } from "@fluid-wallet/runtime";
+import { PermissionStore, RateLimiter, SessionRegistry } from "@fluid-wallet/core";
 
 import { requestApproval } from "./approval";
 import { spendRequest, usageToday } from "./budget";

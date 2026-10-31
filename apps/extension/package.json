@@ -12,12 +12,9 @@
     "typecheck": "wxt prepare && tsc --noEmit"
   },
   "dependencies": {
-    "@fluid-wallet/crypto": "workspace:^",
+    "@fluid-wallet/core": "workspace:^",
     "@fluid-wallet/protocol": "workspace:^",
-    "@fluid-wallet/providers": "workspace:^",
-    "@fluid-wallet/runtime": "workspace:^",
     "@fluid-wallet/sdk": "workspace:^",
-    "@fluid-wallet/storage": "workspace:^",
     "react": "catalog:",
     "react-dom": "catalog:"
   },

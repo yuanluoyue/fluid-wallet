@@ -1,4 +1,4 @@
-import { createFluidDatabase, type FluidDatabase } from "@fluid-wallet/storage";
+import { createFluidDatabase, type FluidDatabase } from "@fluid-wallet/core";
 
 let instance: FluidDatabase | null = null;
 
