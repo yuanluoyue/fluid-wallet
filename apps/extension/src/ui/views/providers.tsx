@@ -33,8 +33,8 @@ interface Draft {
 const EMPTY: Draft = {
   name: PROVIDER_PRESETS[0]?.name ?? "",
   baseUrl: PROVIDER_PRESETS[0]?.baseUrl ?? "",
-  models: (PROVIDER_PRESETS[0]?.models ?? []).join(", "),
-  defaultModel: PROVIDER_PRESETS[0]?.defaultModel ?? "",
+  models: "",
+  defaultModel: "",
   apiKey: "",
 };
 
@@ -360,15 +360,18 @@ export function ProvidersView({ surface }: { surface: Surface }) {
                     setPreset(key);
                     const chosen = PROVIDER_PRESETS.find((candidate) => candidate.key === key);
                     if (!chosen) {
-                      setDraft({ ...draft, name: "", baseUrl: "https://", models: "" });
+                      setDraft({ ...draft, name: "", baseUrl: "https://", models: "", defaultModel: "" });
                       return;
                     }
+                    // Switching preset changes who is being talked to, so the
+                    // model ids from the previous one are cleared rather than
+                    // carried over to an endpoint that does not serve them.
                     setDraft({
                       ...draft,
                       name: chosen.name,
                       baseUrl: chosen.baseUrl,
-                      models: chosen.models.join(", "),
-                      defaultModel: chosen.defaultModel,
+                      models: "",
+                      defaultModel: "",
                     });
                   }}
                 >

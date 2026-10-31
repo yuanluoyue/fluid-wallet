@@ -63,6 +63,43 @@ describe("createOpenAICompatibleProvider", () => {
     });
   });
 
+  it("reads usage from the trailing frame real servers send", async () => {
+    // What OpenAI and DeepSeek actually emit once `include_usage` is set: the
+    // finish frame has no usage, and a final frame with an empty `choices`
+    // array carries it. Reading usage only at `finish_reason` loses it here.
+    let body: Record<string, unknown> = {};
+    const provider = createOpenAICompatibleProvider({
+      id: "test",
+      name: "Test provider",
+      baseUrl: "https://example.test/v1",
+      apiKey: "sk-secret",
+      fetchImpl: async (_input, init) => {
+        body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+        return jsonResponse([
+          'data: {"choices":[{"delta":{"content":"hi"}}]}\n\n',
+          'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n',
+          'data: {"choices":[],"usage":{"prompt_tokens":11,"completion_tokens":7,"total_tokens":18}}\n\n',
+          "data: [DONE]\n\n",
+        ]);
+      },
+    });
+
+    const chunks = [];
+    for await (const chunk of provider.streamChat({
+      model: "deepseek-chat",
+      messages: [{ role: "user", content: "hi" }],
+    })) {
+      chunks.push(chunk);
+    }
+
+    expect(body.stream_options).toEqual({ include_usage: true });
+    expect(chunks.at(-1)).toEqual({
+      type: "finish",
+      reason: "stop",
+      usage: { inputTokens: 11, outputTokens: 7, totalTokens: 18 },
+    });
+  });
+
   it("accumulates a full reply through chat()", async () => {
     const provider = createOpenAICompatibleProvider({
       id: "test",

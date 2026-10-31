@@ -59,7 +59,7 @@ packages/
     src/testing/  In-memory mock wallet       → /testing
   core/           Wallet kernel, only the extension imports it   (private)
     src/crypto/     PBKDF2 + AES-GCM key vault
-    src/providers/  OpenAI-compatible adapter, DeepSeek preset
+    src/providers/  OpenAI-compatible adapter (SSE, usage, tools)
     src/runtime/    Origin checks, permissions, sessions, limits
     src/storage/    Dexie/IndexedDB schema
 examples/

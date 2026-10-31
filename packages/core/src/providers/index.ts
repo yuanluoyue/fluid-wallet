@@ -188,6 +188,11 @@ export function createOpenAICompatibleProvider(config: ProviderConfig): Provider
     model: request.model,
     messages: toOpenAIMessages(request.messages),
     stream: true,
+    // OpenAI-compatible servers omit token counts from a stream by default;
+    // this is the only switch that makes them send a final `usage` frame. It is
+    // part of the streaming spec and DeepSeek honours it, so a wallet that
+    // wants an activity log with real numbers has to ask for it explicitly.
+    stream_options: { include_usage: true },
     ...(request.temperature === undefined ? {} : { temperature: request.temperature }),
     ...(request.topP === undefined ? {} : { top_p: request.topP }),
     ...(request.maxTokens === undefined ? {} : { max_tokens: request.maxTokens }),
@@ -238,6 +243,14 @@ export function createOpenAICompatibleProvider(config: ProviderConfig): Provider
     }
 
     let finished = false;
+    // Usage arrives on the frame carrying `finish_reason` on some servers, and
+    // on a separate trailing frame with an empty `choices` array on others —
+    // every OpenAI-compatible server that honours `include_usage` does the
+    // latter. Reading it only at `finish_reason` therefore loses it on the
+    // servers people actually use, so both shapes are collected here and the
+    // finish event is held back until the stream is done.
+    let usage: FluidUsage | undefined;
+    let finishReason: FluidFinishReason | undefined;
     const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
 
     for await (const payload of iterateSse(response.body)) {
@@ -253,6 +266,8 @@ export function createOpenAICompatibleProvider(config: ProviderConfig): Provider
         );
       }
 
+      usage = mapUsage(chunk.usage) ?? usage;
+
       const choice = chunk.choices?.[0];
       const text = choice?.delta?.content;
       if (typeof text === "string" && text.length > 0) {
@@ -267,8 +282,9 @@ export function createOpenAICompatibleProvider(config: ProviderConfig): Provider
         toolCalls.set(index, existing);
       }
 
-      if (choice?.finish_reason) {
+      if (choice?.finish_reason && !finished) {
         finished = true;
+        finishReason = REASON_MAP[choice.finish_reason] ?? "stop";
         for (const call of toolCalls.values()) {
           let args: unknown = {};
           try {
@@ -278,16 +294,14 @@ export function createOpenAICompatibleProvider(config: ProviderConfig): Provider
           }
           yield { type: "tool-call", toolCall: { id: call.id, name: call.name, arguments: args } };
         }
-
-        yield {
-          type: "finish",
-          reason: REASON_MAP[choice.finish_reason] ?? "stop",
-          usage: mapUsage(chunk.usage),
-        };
       }
     }
 
-    if (!finished) yield { type: "finish", reason: "stop" };
+    yield {
+      type: "finish",
+      reason: finishReason ?? "stop",
+      ...(usage ? { usage } : {}),
+    };
   }
 
   return {
@@ -324,22 +338,11 @@ export function createOpenAICompatibleProvider(config: ProviderConfig): Provider
   };
 }
 
-export const DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1";
-export const DEEPSEEK_MODELS = ["deepseek-chat", "deepseek-reasoner"];
-export const DEEPSEEK_DEFAULT_MODEL = "deepseek-chat";
-
-export function createDeepSeekProvider(config: {
-  apiKey: string;
-  baseUrl?: string;
-  fetchImpl?: FetchLike;
-}): ProviderAdapter {
-  return createOpenAICompatibleProvider({
-    id: "deepseek",
-    name: "DeepSeek",
-    baseUrl: config.baseUrl ?? DEEPSEEK_BASE_URL,
-    apiKey: config.apiKey,
-    defaultModel: DEEPSEEK_DEFAULT_MODEL,
-    models: DEEPSEEK_MODELS,
-    fetchImpl: config.fetchImpl,
-  });
-}
+/**
+ * No `createDeepSeekProvider` here on purpose.
+ *
+ * It used to pin `deepseek-chat` as a default and ship a two-model catalogue,
+ * which made the wallet answer "model not configured" against a provider that
+ * had moved on. The base URL is a preset in the UI; the catalogue comes from
+ * `GET /models`.
+ */
