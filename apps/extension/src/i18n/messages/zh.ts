@@ -215,6 +215,17 @@ export const zh: Messages = {
     decideFailed: "提交决定失败。",
   },
 
+  Setup: {
+    badge: "连接已暂停",
+    title: "先添加一个模型服务商",
+    body: "这个网站想连接钱包，但钱包里还没有可以接收请求的服务商。添加你的 DeepSeek Key（或任何兼容 OpenAI 协议的端点），然后回到网站重新连接。",
+    origin: "来自",
+    add: "去添加服务商",
+    later: "稍后再说",
+    unknownTitle: "请求无效",
+    unknownBody: "发起连接的网站缺失或格式不正确。",
+  },
+
   Grant: {
     badge: "服务商访问权限",
     title: "允许这个站点访问吗？",

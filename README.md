@@ -11,9 +11,11 @@ for inference without ever touching them.
 > Status: **MVP-03**. The wallet works end to end: encrypted vault, provider
 > management with connection tests and a fetched model catalogue, connect
 > approval, scoped permissions, streamed inference, cancellation, an activity
-> log, and a raw proxy path so apps can keep using their provider's own SDK. The
-> panel itself is bilingual (English / 中文, switchable in the header). Store
-> packaging and tool-call round trips are next.
+> log, and a raw proxy path so apps can keep using their provider's own SDK. A
+> connect request against a wallet with no provider is refused with a window
+> that leads straight to the provider form. The panel itself is bilingual
+> (English / 中文, switchable in the header). Store packaging and tool-call
+> round trips are next.
 
 ## Principles
 

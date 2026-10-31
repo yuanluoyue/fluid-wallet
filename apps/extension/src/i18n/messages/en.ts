@@ -222,6 +222,17 @@ export const en = {
     decideFailed: "Could not send the decision.",
   },
 
+  Setup: {
+    badge: "Connection paused",
+    title: "Add a provider first",
+    body: "This site asked to connect, but the wallet has no model provider to send its requests to. Add your DeepSeek key — or any OpenAI-compatible endpoint — then connect again from the site.",
+    origin: "Requested by",
+    add: "Add a provider",
+    later: "Not now",
+    unknownTitle: "Unknown request",
+    unknownBody: "The site that asked to connect is missing or malformed.",
+  },
+
   Grant: {
     badge: "Provider access",
     title: "Allow this site?",

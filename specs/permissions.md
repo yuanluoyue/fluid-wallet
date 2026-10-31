@@ -43,10 +43,14 @@ narrow or widen its scope but cannot accumulate hidden extra capabilities.
 
 1. Page calls `wallet.connect` with the capabilities it wants and a human
    readable `reason`.
-2. The wallet shows the **sender origin**, the app name from its own metadata
+2. A wallet with no provider to serve the request refuses with
+   `ProviderUnavailable` and `data.reason: "no-provider"`, and says where to add
+   one. A grant that reaches nothing would only fail one call later, on a chat
+   message with no explanation.
+3. The wallet shows the **sender origin**, the app name from its own metadata
    (not from the request when a mismatch is detectable), and the requested scope.
-3. On approval the wallet persists the grant and emits `permissions.changed`.
-4. On decline it returns `Rejected` and stores nothing.
+4. On approval the wallet persists the grant and emits `permissions.changed`.
+5. On decline it returns `Rejected` and stores nothing.
 
 Default TTL is 7 days. A wallet may shorten it; it must not silently extend it.
 

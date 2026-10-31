@@ -23,7 +23,7 @@ import {
 } from "@fluid-wallet/protocol";
 import { PermissionStore, RateLimiter, SessionRegistry } from "@fluid-wallet/core";
 
-import { requestApproval } from "./approval";
+import { openSetupWindow, requestApproval } from "./approval";
 import { spendRequest, usageToday } from "./budget";
 import { db } from "./db";
 import { emit, rememberTab } from "./events";
@@ -383,6 +383,19 @@ async function connect(
   // The approval window is the only place the user sees what a grant reaches,
   // so it is told up front instead of making them guess from a capability list.
   const walletProviders = await listProviders();
+
+  // A grant to a wallet with no provider reaches nothing. Refusing here is the
+  // difference between "connect failed, and here is the screen to fix it" and
+  // an approved connection whose first chat message dies for no stated reason.
+  if (walletProviders.length === 0) {
+    await openSetupWindow(origin);
+    throw new FluidError(
+      FluidErrorCode.ProviderUnavailable,
+      "Fluid Wallet has no provider yet. Add one in the wallet, then connect again.",
+      { reason: "no-provider" },
+    );
+  }
+
   const scoped = requested.providers?.length
     ? walletProviders.filter((provider) => requested.providers?.includes(provider.id))
     : walletProviders;

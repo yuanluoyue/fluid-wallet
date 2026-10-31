@@ -111,6 +111,40 @@ export function requestApproval(
   return decision;
 }
 
+/**
+ * The page asked to connect while the wallet has no provider to serve it.
+ *
+ * Approving a grant that reaches nothing would only move the failure one call
+ * later, to a chat box with no explanation — so the request is refused now and
+ * the window explains why, with the one screen that fixes it one click away.
+ *
+ * A page that retries in a loop must not stack windows, so an already-open one
+ * for the same origin is focused instead.
+ */
+export async function openSetupWindow(origin: string): Promise<void> {
+  const url = browser.runtime.getURL(`/options.html?view=setup&origin=${encodeURIComponent(origin)}`);
+  try {
+    const open = await findWindow(url);
+    if (open !== undefined) {
+      await browser.windows.update(open, { focused: true });
+      return;
+    }
+    await browser.windows.create({ url, type: "popup", width: 460, height: 400 });
+  } catch {
+    // The refusal is what the page needs. A window that could not open makes it
+    // less obvious, not less true, so it must not replace the real error.
+  }
+}
+
+/** Window already showing `url`, if any. */
+async function findWindow(url: string): Promise<number | undefined> {
+  const windows = await browser.windows.getAll({ populate: true });
+  for (const win of windows) {
+    if (win.tabs?.some((tab) => tab.url === url)) return win.id;
+  }
+  return undefined;
+}
+
 async function openApprovalWindow(id: string): Promise<void> {
   // WXT types `getURL` against the entrypoints it generated, so the leading
   // slash and the exact file name are both required.

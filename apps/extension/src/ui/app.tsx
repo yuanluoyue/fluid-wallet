@@ -11,6 +11,7 @@ import { GrantView } from "./views/grant";
 import { ImportView } from "./views/import";
 import { ProvidersView } from "./views/providers";
 import { SettingsView } from "./views/settings";
+import { SetupView } from "./views/setup";
 import { Onboarding, Unlock } from "./views/unlock";
 
 const TABS = [
@@ -32,13 +33,19 @@ type TabId = (typeof TABS)[number]["id"];
  */
 export function App() {
   const { t } = useI18n();
-  const [state, setState] = useState<UiState | null>(null);
-  const [tab, setTab] = useState<TabId>("providers");
-  const [error, setError] = useState<string | null>(null);
 
   const search = new URLSearchParams(window.location.search);
   const approvalId = search.get("approve");
   const view = search.get("view");
+
+  // A window can ask for a tab by name — the "no provider yet" window sends the
+  // user straight to the list they have to fill in. An unknown value is not a
+  // tab, so it falls back instead of rendering an empty panel.
+  const requestedTab = TABS.find((item) => item.id === search.get("tab"))?.id ?? "providers";
+
+  const [state, setState] = useState<UiState | null>(null);
+  const [tab, setTab] = useState<TabId>(requestedTab);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -56,6 +63,9 @@ export function App() {
   // prompt, or a file picker. Each renders on its own, without the wallet shell.
   if (view === "grant") return <GrantView origin={search.get("origin") ?? ""} />;
   if (view === "import") return <ImportView />;
+  // Opened by the service worker when a site tried to connect to a wallet that
+  // has no provider yet.
+  if (view === "setup") return <SetupView origin={search.get("origin") ?? ""} />;
 
   if (approvalId) return <ApprovalView requestId={approvalId} />;
 

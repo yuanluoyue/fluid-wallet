@@ -22,6 +22,17 @@ describe("describeFluidError", () => {
     ).toMatchObject({ kind: "provider", action: "fix-provider" });
   });
 
+  it("names the wallet's own missing provider instead of blaming the key", () => {
+    const issue = describeFluidError(
+      new FluidError(FluidErrorCode.ProviderUnavailable, "no provider yet", {
+        reason: "no-provider",
+      }),
+    );
+
+    expect(issue).toMatchObject({ kind: "provider", action: "fix-provider" });
+    expect(issue.title).toBe("The wallet has no provider yet");
+  });
+
   it("keeps the retry hint a rate limit carries", () => {
     const issue = describeFluidError(
       new FluidError(FluidErrorCode.RateLimited, "slow down", { retryAfterMs: 4_000 }),

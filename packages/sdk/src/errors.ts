@@ -63,7 +63,7 @@ export function describeFluidError(error: unknown): FluidIssue {
     };
   }
 
-  const data = (error.data ?? {}) as { retryAfterMs?: number };
+  const data = (error.data ?? {}) as { retryAfterMs?: number; reason?: string };
   const base = { code: error.code };
   const withRetry = data.retryAfterMs === undefined ? base : { ...base, retryAfterMs: data.retryAfterMs };
 
@@ -134,6 +134,27 @@ export function describeFluidError(error: unknown): FluidIssue {
       };
 
     case FluidErrorCode.ProviderUnavailable:
+      // `no-provider` is wallet state, not a provider refusing: the wallet has
+      // nothing configured, and telling the user their key or balance is wrong
+      // would send them to the wrong screen.
+      if (data.reason === "no-provider") {
+        return {
+          ...base,
+          kind: "provider",
+          action: "fix-provider",
+          title: "The wallet has no provider yet",
+          detail:
+            "Fluid Wallet has nothing configured to send this request to. Add a provider there, then connect again.",
+        };
+      }
+      return {
+        ...base,
+        kind: "provider",
+        action: "fix-provider",
+        title: "The provider refused the request",
+        detail: error.message,
+      };
+
     case FluidErrorCode.InferenceFailed:
       return {
         ...base,
