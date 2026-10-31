@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Fluid Wallet browser extension (MV3) built with WXT + React.",
   "scripts": {
-    "dev": "node scripts/print-load-path.mjs && wxt",
+    "dev": "node scripts/dev.mjs",
     "build": "wxt build",
     "zip": "wxt zip",
     "postinstall": "wxt prepare",

@@ -68,19 +68,33 @@ export function describeFluidError(error: unknown): FluidIssue {
   const withRetry = data.retryAfterMs === undefined ? base : { ...base, retryAfterMs: data.retryAfterMs };
 
   switch (error.code) {
-    case FluidErrorCode.NotInstalled:
+    case FluidErrorCode.NotInstalled: {
+      // Two different pages produce the same "nothing answered" from the
+      // caller's side, and the fix differs: one is a missing extension, the
+      // other is an installed extension whose worker is dead. The SDK knows
+      // which one it is (there is a bridge or there is not), so it says so
+      // rather than sending people to reinstall something that is already
+      // there.
+      if (data.reason === "worker-silent") {
+        return {
+          ...base,
+          kind: "unavailable",
+          action: "install",
+          title: "The wallet is installed but not answering",
+          detail:
+            "The page has the wallet's bridge, so the extension did load — its background worker stopped responding. Open chrome://extensions, check Fluid Wallet for errors, press Reload on its card, then reload this page.",
+        };
+      }
+
       return {
         ...base,
         kind: "unavailable",
         action: "install",
         title: "No wallet found",
-        // "Install the extension" is only one of the two ways to get here, and
-        // it is the wrong one whenever the extension is loaded but silent — a
-        // dev build whose dev server is not running looks exactly like no
-        // extension at all from inside a page.
         detail:
-          "Nothing answered from this page. Either the extension is not installed, or it is installed but did not inject here: a development build only works while its dev server runs, and site-access settings can block content scripts. Check chrome://extensions, then reload this page.",
+          "No wallet script ran in this page, so `window.fluid` is undefined here. Load apps/extension/dist/chrome-mv3 in chrome://extensions and reload — that folder is the standalone build. A `pnpm dev:extension` build stops injecting the moment its dev server stops.",
       };
+    }
 
     case FluidErrorCode.Locked:
       return {

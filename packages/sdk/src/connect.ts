@@ -100,11 +100,21 @@ export async function connectFluid(options: ConnectFluidOptions = {}): Promise<F
     };
   }
 
+  // Nothing answered — but "nothing answered" hides two very different pages.
+  // A bridge means the extension did inject here and its background worker is
+  // the part that failed; no bridge means no script ever ran. Only the page can
+  // tell those apart, so the distinction travels with the error instead of
+  // being guessed at by whoever reads the message.
+  const injected = client.transportKind === "bridge";
+
   const apiKey = options.devApiKey ?? env("FLUID_DEV_API_KEY");
   if (!apiKey) {
     throw new FluidError(
       FluidErrorCode.NotInstalled,
-      "Fluid Wallet did not answer. Install the extension, or set devApiKey / FLUID_DEV_API_KEY while developing.",
+      injected
+        ? "Fluid Wallet is injected in this page, but its background worker never answered."
+        : "No Fluid Wallet bridge exists in this page: the extension is not loaded, or it did not inject here.",
+      { reason: injected ? "worker-silent" : "not-injected" },
     );
   }
   if (isProduction()) {

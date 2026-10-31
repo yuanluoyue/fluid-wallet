@@ -92,32 +92,40 @@ pnpm test
 Then, in separate terminals:
 
 ```bash
-pnpm dev:extension     # prints apps/extension/dist/chrome-mv3-dev; load it as unpacked
+pnpm build:extension   # one-off build → apps/extension/dist/chrome-mv3
 pnpm dev:playground    # http://localhost:5174
 pnpm dev:website       # http://localhost:3000
 ```
 
 The extension build is not launched for you on purpose: Chrome has no way to
-watch a folder, so `Load unpacked` → `apps/extension/dist/chrome-mv3-dev` is a
-one-time step, and ⟳ on the card reloads it after a rebuild. (`dist/`, not
-WXT's default `.output/`, because the picker hides dot-folders.)
+watch a folder, so `Load unpacked` → `apps/extension/dist/chrome-mv3` is a
+one-time step, and ⟳ on the card reloads it after a rebuild. (`dist/`, not WXT's
+default `.output/`, because the picker hides dot-folders.)
 
-**The dev build only lives while `pnpm dev:extension` runs.** `wxt dev` points
-`popup.html` at `http://localhost:3000` and leaves `content_scripts` out of the
-manifest, registering them over the dev server's websocket instead. Stop the
-process and the extension goes quiet — blank toolbar panel, no `window.fluid`,
-and every page reports `No wallet found`. That is not a broken install; it is a
-build that is half a dev server.
+**Load `dist/chrome-mv3` unless you are actively editing the panel.**
+`pnpm dev:extension` starts `wxt`'s dev server instead and writes
+`dist/chrome-mv3-dev`, which is not a standalone extension: its `popup.html`
+points at the dev server and its `content_scripts` are registered over the dev
+server's websocket rather than listed in the manifest. Stop the process and that
+folder stays on disk looking loadable while injecting nothing — blank panel, no
+`window.fluid`, every page reporting `No wallet found`. To keep that from
+surviving as a trap, `pnpm dev:extension` deletes `dist/chrome-mv3-dev` when it
+exits; if Chrome is still pointed at it, reload the card against
+`dist/chrome-mv3`.
 
-| | folder | needs the dev server |
+| | folder | standalone |
 |---|---|---|
-| `pnpm dev:extension` | `dist/chrome-mv3-dev` | yes, keep it running |
-| `pnpm build:extension` | `dist/chrome-mv3` | no — load and forget |
+| `pnpm build:extension` | `dist/chrome-mv3` | yes — load and forget |
+| `pnpm dev:extension` | `dist/chrome-mv3-dev` | no, and deleted on exit |
 
-Use the production build for anything that is not active UI work. It is also a
-different folder, so Chrome gives it a different extension id and therefore a
-separate wallet: switching back and forth does not carry the vault or the
-grants with it.
+The two folders are different extensions to Chrome, with different ids and
+therefore separate wallets: switching between them does not carry the vault or
+the grants across.
+
+When a page reports `No wallet found`, it is worth one check before touching
+anything else — in the page's console, `window.fluid` is either an object (the
+extension injected and its worker is the problem) or `undefined` (no script ran
+here). The playground prints that same bit next to its status chips.
 
 ## Deploying the website
 

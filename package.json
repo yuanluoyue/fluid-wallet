@@ -20,6 +20,7 @@
     "format:check": "prettier --check .",
     "clean": "pnpm -r exec rm -rf dist .next .output .wxt coverage",
     "dev:extension": "pnpm --filter @fluid-wallet/extension dev",
+    "build:extension": "pnpm --filter @fluid-wallet/extension build",
     "dev:website": "pnpm --filter @fluid-wallet/website dev",
     "dev:playground": "pnpm --filter @fluid-wallet/playground dev",
     "build:website": "pnpm --filter @fluid-wallet/website build",

@@ -214,6 +214,11 @@ export function App() {
   const mode = handle?.mode;
   const available = client.state.availability;
   const locked = client.state.wallet?.locked ?? false;
+  // The page cannot see the extension, only whether a script put a bridge on
+  // `window`. That one bit is the difference between "not installed" and
+  // "installed but not answering", and it is worth showing instead of asking
+  // anyone to open DevTools to retype it.
+  const bridgePresent = typeof window !== "undefined" && "fluid" in window;
 
   return (
     <main style={s.page}>
@@ -233,8 +238,21 @@ export function App() {
         <span style={s.chip}>
           today: {usage ? `${usage.used}${usage.limit ? ` / ${usage.limit}` : ""}` : "—"}
         </span>
+        <span style={{ ...s.chip, background: bridgePresent ? "#e7f5ec" : "#f3f1ec" }}>
+          window.fluid: {bridgePresent ? "present" : "undefined"}
+        </span>
+        <span style={s.chip}>transport: {client.transportKind}</span>
         {mode ? <span style={s.chip}>mode: {mode}</span> : null}
       </div>
+
+      {available === "unavailable" ? (
+        <p style={{ ...s.mono, color: "#8a8f99", marginTop: 10, lineHeight: 1.7 }}>
+          origin {window.location.origin} · nothing answered `wallet.getInfo` within 2s.{" "}
+          {bridgePresent
+            ? "The bridge is here, so the extension loaded and its background worker did not answer — check chrome://extensions for errors, then reload."
+            : "No script injected here. Load apps/extension/dist/chrome-mv3 as an unpacked extension, then reload this page; a dev-server build only injects while its server runs."}
+        </p>
+      ) : null}
 
       {issue ? (
         <section
