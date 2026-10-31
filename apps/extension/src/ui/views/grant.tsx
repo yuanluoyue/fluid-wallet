@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { browser } from "wxt/browser";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "../../i18n/react";
+import { Screen } from "../components";
 
 /**
  * Asks the browser for access to one provider origin.
@@ -37,33 +40,44 @@ export function GrantView({ origin }: { origin: string }) {
 
   if (!/^https?:\/\/[^/]+$/.test(origin)) {
     return (
-      <div className="narrow">
-        <h1 className="hero-title">{t("Grant.unknownTitle")}</h1>
-        <p className="muted">{t("Grant.unknownBody")}</p>
-        <button className="btn" style={{ marginTop: 16 }} onClick={() => window.close()}>
+      <Screen>
+        <h1 className="text-xl font-semibold tracking-tight">{t("Grant.unknownTitle")}</h1>
+        <p className="text-[12.5px] text-muted-foreground">{t("Grant.unknownBody")}</p>
+        <Button variant="outline" className="self-start" onClick={() => window.close()}>
           {t("Common.close")}
-        </button>
-      </div>
+        </Button>
+      </Screen>
     );
   }
 
   return (
-    <div className="narrow">
-      <p className="badge">{t("Grant.badge")}</p>
-      <h1 className="hero-title" style={{ marginTop: 10 }}>
-        {t("Grant.title")}
-      </h1>
-      <p className="mono">{origin}</p>
-      <p className="muted" style={{ marginTop: 10 }}>
-        {t("Grant.body")}
-      </p>
-      {status === "granted" ? <p className="badge badge-ok">{t("Grant.granted")}</p> : null}
-      {status === "denied" ? <p className="badge badge-warn">{t("Grant.denied")}</p> : null}
-      {error ? <p className="error">{error}</p> : null}
+    <Screen>
+      <div className="flex flex-col gap-1.5">
+        <Badge className="mb-1 self-start">{t("Grant.badge")}</Badge>
+        <h1 className="text-xl font-semibold tracking-tight">{t("Grant.title")}</h1>
+        <p className="font-mono text-[11.5px] text-muted-foreground">{origin}</p>
+      </div>
 
-      <div className="stack" style={{ marginTop: 18 }}>
-        <button
-          className="btn btn-primary"
+      <p className="text-[12.5px] leading-relaxed text-muted-foreground">{t("Grant.body")}</p>
+
+      {status === "granted" ? (
+        <Badge variant="success" className="self-start">
+          {t("Grant.granted")}
+        </Badge>
+      ) : null}
+      {status === "denied" ? (
+        <Badge variant="warning" className="self-start">
+          {t("Grant.denied")}
+        </Badge>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-[12.5px] text-destructive">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="flex flex-col gap-2">
+        <Button
           onClick={() => void allow()}
           disabled={status === "asking" || status === "granted"}
         >
@@ -72,11 +86,11 @@ export function GrantView({ origin }: { origin: string }) {
             : status === "asking"
               ? t("Grant.waiting")
               : t("Grant.allow")}
-        </button>
-        <button className="btn" onClick={() => window.close()}>
+        </Button>
+        <Button variant="ghost" onClick={() => window.close()}>
           {t("Common.close")}
-        </button>
+        </Button>
       </div>
-    </div>
+    </Screen>
   );
 }

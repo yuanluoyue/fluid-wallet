@@ -112,6 +112,8 @@ export const zh: Messages = {
     empty: "还没有应用连接过这个钱包。",
     revoke: "撤销",
     revokeAll: "全部撤销（{count}）",
+    revokeAllTitle: "撤销全部已连接的应用？",
+    revokeAllBody: "这 {count} 个应用都需要重新申请才能使用你的模型，其他数据不会被删除。",
     revokeAllConfirm: "确认全部撤销（{count}）",
     keep: "保留",
     granted: "授权于{when}",

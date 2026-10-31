@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "wxt";
 
 /** Workspace packages are consumed from source so the extension never needs a stale `dist`. */
@@ -33,8 +34,15 @@ export default defineConfig({
     disabled: true,
   },
   vite: () => ({
+    plugins: [tailwindcss()],
     resolve: {
       alias: {
+        // `@/components/ui/button` instead of `../../../components/ui/button`,
+        // which is what shadcn's generated imports assume. Keyed on `@/` and not
+        // on `@` so it cannot swallow `@fluid-wallet/*` — a bare `@` alias is a
+        // prefix match and would rewrite those to `src/fluid-wallet/...`.
+        // The same alias lives in tsconfig.json for the type checker.
+        "@/": fileURLToPath(new URL("./src/", import.meta.url)),
         "@fluid-wallet/core": pkg("core"),
         "@fluid-wallet/protocol": pkg("protocol"),
         "@fluid-wallet/sdk": pkg("sdk"),

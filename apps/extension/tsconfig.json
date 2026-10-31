@@ -4,6 +4,7 @@
     "baseUrl": ".",
     "jsx": "react-jsx",
     "paths": {
+      "@/*": ["./src/*"],
       "@fluid-wallet/core": ["../../packages/core/src/index.ts"],
       "@fluid-wallet/protocol": ["../../packages/protocol/src/index.ts"],
       "@fluid-wallet/sdk": ["../../packages/sdk/src/index.ts"]

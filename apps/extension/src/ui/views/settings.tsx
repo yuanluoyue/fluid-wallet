@@ -1,5 +1,15 @@
 import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useI18n } from "../../i18n/react";
 import type { ExportResult } from "../../wallet/backup";
 import type { UiState } from "../../wallet/ui";
@@ -25,20 +35,19 @@ export function SettingsView({
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [passphrase, setPassphrase] = useState("");
-  const [backupNotice, setBackupNotice] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
 
   const changePassword = async (event: FormEvent): Promise<void> => {
     event.preventDefault();
     setError(null);
-    setNotice(null);
     try {
       onState(await send<UiState>({ type: "ui:changePassword", current, next }));
       setCurrent("");
       setNext("");
-      setNotice(t("Settings.password.ok"));
+      // An acknowledgement, not a state: a badge in the flow would push the
+      // backup card down and stay there until the next action.
+      toast.success(t("Settings.password.ok"));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("Settings.password.failed"));
     }
@@ -64,7 +73,6 @@ export function SettingsView({
 
   const download = async (): Promise<void> => {
     setBackupError(null);
-    setBackupNotice(null);
     try {
       const result = await send<ExportResult>({ type: "ui:exportBackup", passphrase });
       const url = URL.createObjectURL(new Blob([result.contents], { type: "application/json" }));
@@ -73,16 +81,18 @@ export function SettingsView({
       link.download = result.filename;
       link.click();
       URL.revokeObjectURL(url);
-      setBackupNotice(
-        t("Settings.backup.exported", { count: result.providers, file: result.filename }),
-      );
+      toast.success(t("Settings.backup.exported", { count: result.providers, file: result.filename }));
     } catch (cause) {
       setBackupError(cause instanceof Error ? cause.message : t("Settings.backup.exportFailed"));
     }
   };
 
+  // A stored value that is not one of the presets would leave the trigger blank;
+  // showing the raw interval is more honest than silently picking one.
+  const autoLockOption = AUTO_LOCK_VALUES.find((option) => option.value === state.autoLockMs);
+
   return (
-    <>
+    <div className="flex flex-col gap-3">
       {/* Also in the header, where it is one click away from every screen. This
           copy is here because Settings is where a user goes looking for it. */}
       <Card title={t("Settings.language.title")} description={t("Settings.language.description")}>
@@ -91,32 +101,42 @@ export function SettingsView({
         </Field>
       </Card>
 
-      <Card
-        title={t("Settings.autoLock.title")}
-        description={t("Settings.autoLock.description")}
-      >
+      <Card title={t("Settings.autoLock.title")} description={t("Settings.autoLock.description")}>
         <Field label={t("Settings.autoLock.label")}>
-          <select
-            className="input"
-            value={state.autoLockMs}
-            onChange={(event) => void changeAutoLock(Number(event.target.value))}
+          <Select
+            value={String(state.autoLockMs)}
+            onValueChange={(value) => void changeAutoLock(Number(value))}
           >
-            {AUTO_LOCK_VALUES.map((option) => (
-              <option key={option.value} value={option.value}>
-                {t(option.label)}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger>
+              <SelectValue>
+                {autoLockOption
+                  ? t(autoLockOption.label)
+                  : `${Math.round(state.autoLockMs / 60_000)} min`}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {AUTO_LOCK_VALUES.map((option) => (
+                <SelectItem key={option.value} value={String(option.value)}>
+                  {t(option.label)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
-        <button className="btn" onClick={() => void send<UiState>({ type: "ui:lock" }).then(onState)}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="self-start"
+          onClick={() => void send<UiState>({ type: "ui:lock" }).then(onState)}
+        >
           {t("Settings.autoLock.now")}
-        </button>
+        </Button>
       </Card>
 
       <Card title={t("Settings.budget.title")} description={t("Settings.budget.description")}>
-        <Field label={t("Settings.budget.label")} hint={t("Settings.budget.hint")}>
-          <input
-            className="input"
+        <Field label={t("Settings.budget.label")} hint={t("Settings.budget.hint")} htmlFor="daily-limit">
+          <Input
+            id="daily-limit"
             type="number"
             min={0}
             step={10}
@@ -128,52 +148,70 @@ export function SettingsView({
       </Card>
 
       <Card title={t("Settings.password.title")} description={t("Settings.password.description")}>
-        <form className="stack" onSubmit={changePassword}>
-          <Field label={t("Settings.password.current")}>
-            <input
-              className="input"
+        <form className="flex flex-col gap-3" onSubmit={changePassword}>
+          <Field label={t("Settings.password.current")} htmlFor="password-current">
+            <Input
+              id="password-current"
               type="password"
               value={current}
               onChange={(event) => setCurrent(event.target.value)}
             />
           </Field>
-          <Field label={t("Settings.password.next")} hint={t("Settings.password.nextHint")}>
-            <input
-              className="input"
+          <Field
+            label={t("Settings.password.next")}
+            hint={t("Settings.password.nextHint")}
+            htmlFor="password-next"
+          >
+            <Input
+              id="password-next"
               type="password"
               value={next}
               onChange={(event) => setNext(event.target.value)}
             />
           </Field>
           <ErrorText error={error} />
-          {notice ? <p className="badge badge-ok">{notice}</p> : null}
-          <button className="btn btn-primary" type="submit" disabled={!current || next.length < 8}>
+          <Button
+            type="submit"
+            size="sm"
+            className="self-start"
+            disabled={!current || next.length < 8}
+          >
             {t("Settings.password.submit")}
-          </button>
+          </Button>
         </form>
       </Card>
 
       <Card title={t("Settings.backup.title")} description={t("Settings.backup.description")}>
-        <Field label={t("Settings.backup.passphrase")} hint={t("Settings.backup.passphraseHint")}>
-          <input
-            className="input"
+        <Field
+          label={t("Settings.backup.passphrase")}
+          hint={t("Settings.backup.passphraseHint")}
+          htmlFor="backup-passphrase"
+        >
+          <Input
+            id="backup-passphrase"
             type="password"
             value={passphrase}
             onChange={(event) => setPassphrase(event.target.value)}
           />
         </Field>
         <ErrorText error={backupError} />
-        {backupNotice ? <p className="badge badge-ok">{backupNotice}</p> : null}
-        <div className="actions">
-          <button className="btn" disabled={passphrase.length < 8} onClick={() => void download()}>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={passphrase.length < 8}
+            onClick={() => void download()}
+          >
             {t("Settings.backup.export")}
-          </button>
-          <button className="btn" onClick={openImportWindow}>
+          </Button>
+          <Button variant="outline" size="sm" onClick={openImportWindow}>
             {t("Settings.backup.restore")}
-          </button>
+          </Button>
         </div>
-        <p className="hint">{t("Settings.backup.restoreHint")}</p>
+        <p className="text-[11.5px] leading-snug text-muted-foreground">
+          {t("Settings.backup.restoreHint")}
+        </p>
       </Card>
-    </>
+    </div>
   );
 }

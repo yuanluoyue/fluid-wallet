@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card as CardShell, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useI18n } from "../../i18n/react";
 import type { PendingApproval } from "../../wallet/approval";
-import { hostOf, send, useFormatters } from "../components";
+import { Screen, hostOf, send, useFormatters } from "../components";
 
 /**
  * Shown in the popup window opened by `wallet.connect`.
@@ -35,88 +38,104 @@ export function ApprovalView({ requestId }: { requestId: string }) {
 
   if (request === undefined) {
     return (
-      <div className="narrow">
-        <p className="muted">{t("Approval.loading")}</p>
-      </div>
+      <Screen>
+        <p className="text-[12.5px] text-muted-foreground">{t("Approval.loading")}</p>
+      </Screen>
     );
   }
 
   if (request === null) {
     return (
-      <div className="narrow">
-        <h1 className="hero-title">{t("Approval.expiredTitle")}</h1>
-        <p className="muted">{t("Approval.expiredBody")}</p>
-        <button className="btn" style={{ marginTop: 16 }} onClick={() => window.close()}>
+      <Screen>
+        <h1 className="text-xl font-semibold tracking-tight">{t("Approval.expiredTitle")}</h1>
+        <p className="text-[12.5px] text-muted-foreground">{t("Approval.expiredBody")}</p>
+        <Button variant="outline" className="self-start" onClick={() => window.close()}>
           {t("Common.close")}
-        </button>
-      </div>
+        </Button>
+      </Screen>
     );
   }
 
   return (
-    <div className="narrow">
-      <p className="badge">{t("Approval.badge")}</p>
-      <h1 className="hero-title" style={{ marginTop: 10 }}>
-        {request.request.appName ?? hostOf(request.origin)}
-      </h1>
-      <p className="mono">{request.origin}</p>
-      {request.context.firstConnection ? (
-        <p className="badge badge-warn">{t("Approval.firstTime")}</p>
-      ) : (
-        <p className="badge badge-ok">{t("Approval.again")}</p>
-      )}
-      {request.context.nameMismatch ? (
-        <p className="badge badge-danger">{t("Approval.nameMismatch")}</p>
-      ) : null}
-      {request.request.reason ? <p className="muted">{request.request.reason}</p> : null}
-
-      <section className="card" style={{ marginTop: 18 }}>
-        <h2>{t("Approval.askingFor")}</h2>
-        <div className="chips">
-          {request.request.capabilities.map((scope) => (
-            <span key={scope} className="chip">
-              {capability(scope)}
-            </span>
-          ))}
+    <Screen>
+      <div className="flex flex-col gap-1.5">
+        <Badge className="mb-1 self-start">{t("Approval.badge")}</Badge>
+        <h1 className="text-xl font-semibold tracking-tight">
+          {request.request.appName ?? hostOf(request.origin)}
+        </h1>
+        <p className="font-mono text-[11.5px] text-muted-foreground">{request.origin}</p>
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          <Badge variant={request.context.firstConnection ? "warning" : "success"}>
+            {request.context.firstConnection ? t("Approval.firstTime") : t("Approval.again")}
+          </Badge>
+          {request.context.nameMismatch ? (
+            <Badge variant="destructive">{t("Approval.nameMismatch")}</Badge>
+          ) : null}
         </div>
-        <p className="hint" style={{ marginTop: 12 }}>
-          {t("Approval.neverSeesKey")}
-        </p>
-      </section>
+        {request.request.reason ? (
+          <p className="text-[12.5px] text-muted-foreground">{request.request.reason}</p>
+        ) : null}
+      </div>
+
+      <CardShell>
+        <CardHeader>
+          <CardTitle className="text-[13.5px]">{t("Approval.askingFor")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-1.5">
+            {request.request.capabilities.map((scope) => (
+              <Badge key={scope} variant="primary">
+                {capability(scope)}
+              </Badge>
+            ))}
+          </div>
+          <p className="text-[11.5px] leading-snug text-muted-foreground">
+            {t("Approval.neverSeesKey")}
+          </p>
+        </CardContent>
+      </CardShell>
 
       {request.context.providerNames.length ? (
-        <section className="card">
-          <h2>{t("Approval.willUse")}</h2>
-          <p className="muted">
-            {request.context.providerNames.join(", ")}
-            {request.context.defaultModel
-              ? ` · ${t("Approval.defaultModel", { model: request.context.defaultModel })}`
-              : ""}
-          </p>
-          <p className="hint">{t("Approval.billed")}</p>
-        </section>
+        <CardShell>
+          <CardHeader>
+            <CardTitle className="text-[13.5px]">{t("Approval.willUse")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-[12.5px] text-muted-foreground">
+              {request.context.providerNames.join(", ")}
+              {request.context.defaultModel
+                ? ` · ${t("Approval.defaultModel", { model: request.context.defaultModel })}`
+                : ""}
+            </p>
+            <p className="text-[11.5px] leading-snug text-muted-foreground">{t("Approval.billed")}</p>
+          </CardContent>
+        </CardShell>
       ) : null}
 
       {request.request.capabilities.includes("inference:proxy") ? (
-        <section className="card">
-          <h2>{t("Approval.directAccess")}</h2>
-          <p className="muted">{t("Approval.directAccessBody")}</p>
-        </section>
+        <CardShell>
+          <CardHeader>
+            <CardTitle className="text-[13.5px]">{t("Approval.directAccess")}</CardTitle>
+            <CardDescription>{t("Approval.directAccessBody")}</CardDescription>
+          </CardHeader>
+        </CardShell>
       ) : null}
 
-      {error ? <p className="error">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-[12.5px] text-destructive">
+          {error}
+        </p>
+      ) : null}
 
-      <div className="stack" style={{ marginTop: 16 }}>
-        <button className="btn btn-primary" onClick={() => void decide("allow")}>
-          {t("Approval.allow7")}
-        </button>
-        <button className="btn" onClick={() => void decide("always")}>
+      <div className="flex flex-col gap-2">
+        <Button onClick={() => void decide("allow")}>{t("Approval.allow7")}</Button>
+        <Button variant="outline" onClick={() => void decide("always")}>
           {t("Approval.allowAlways")}
-        </button>
-        <button className="btn btn-danger" onClick={() => void decide("deny")}>
+        </Button>
+        <Button variant="destructive" onClick={() => void decide("deny")}>
           {t("Approval.deny")}
-        </button>
+        </Button>
       </div>
-    </div>
+    </Screen>
   );
 }

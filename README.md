@@ -47,6 +47,8 @@ sender origin → permission → session → rate limit → provider.
 ```
 apps/
   extension/      WXT (MV3) + React wallet: page bridge, service worker, popup
+    src/components/ui/  shadcn components (Radix + Tailwind v4)
+    src/styles.css      Tailwind entry: the wallet's palette as theme tokens
   website/        Next.js site: product, docs, quick start
   playground/     Protocol console: detect, connect, stream
 packages/
@@ -70,6 +72,13 @@ Three packages, one install: apps add `@fluid-wallet/sdk`; a future wallet
 implementation needs only `@fluid-wallet/protocol`. `core` is never published —
 it assumes IndexedDB, Web Crypto and a service worker, and it encodes our
 choices rather than an interface worth promising to anyone else.
+
+The wallet's UI is shadcn/ui on Tailwind v4, and the generated components are
+checked into `apps/extension/src/components/ui/` rather than installed: a rule
+change is then a diff in this repo, not a version bump that has to be re-tested
+against six other screens. The palette in `src/styles.css` is the same one the
+hand-written stylesheet used, mapped onto shadcn's variable names, so the
+components look like this wallet instead of like the demo they ship with.
 
 ## Getting started
 

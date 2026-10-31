@@ -1,10 +1,23 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { toast } from "sonner";
 import { browser } from "wxt/browser";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useI18n, type TFunction } from "../../i18n/react";
 import { PROVIDER_PRESETS, type ProviderInput } from "../../presets";
 import type { ProbeError, RemoteModels, TestResult } from "../../wallet/providers";
 import type { ProviderView } from "../../wallet/ui";
+import type { Surface } from "../app";
 import { Card, ErrorText, Field, send, useFormatters } from "../components";
 import { openGrantWindow } from "../windows";
 
@@ -36,7 +49,7 @@ interface ProbeDraft {
   model?: string;
 }
 
-export function ProvidersView() {
+export function ProvidersView({ surface }: { surface: Surface }) {
   const { t } = useI18n();
   const { timeAgo } = useFormatters();
   const [providers, setProviders] = useState<ProviderView[]>([]);
@@ -44,14 +57,17 @@ export function ProvidersView() {
   // back on every load: the user may have revoked one from chrome://extensions.
   const [access, setAccess] = useState<Record<string, boolean>>({});
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [preset, setPreset] = useState(PROVIDER_PRESETS[0]?.key ?? "");
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   // Set when the last probe failed because the browser holds no host grant:
   // the fix is a button, not a sentence.
   const [needGrant, setNeedGrant] = useState<string | null>(null);
   const [busy, setBusy] = useState<Busy>(null);
   const [saving, setSaving] = useState(false);
   const [remote, setRemote] = useState<RemoteModels | null>(null);
+
+  // Five actions per row do not fit on one line at `sm` in a 400px panel.
+  const actionSize = surface === "popup" ? "xs" : "sm";
 
   const load = async (): Promise<void> => {
     try {
@@ -73,7 +89,6 @@ export function ProvidersView() {
     event.preventDefault();
     if (!draft) return;
     setError(null);
-    setNotice(null);
 
     const input: ProviderInput = {
       id: draft.id,
@@ -94,7 +109,7 @@ export function ProvidersView() {
       setAccess(await accessOf(saved));
       setDraft(null);
       setRemote(null);
-      setNotice(t("Providers.saved"));
+      toast.success(t("Providers.saved"));
 
       const origin = providerOrigin(input.baseUrl);
       if (origin && !(await hasAccess(origin))) openGrantWindow(origin);
@@ -129,7 +144,6 @@ export function ProvidersView() {
 
   const startProbe = (kind: "test" | "models", target: string): void => {
     setError(null);
-    setNotice(null);
     setNeedGrant(null);
     setBusy({ kind, target });
   };
@@ -139,7 +153,7 @@ export function ProvidersView() {
     try {
       const result = await send<TestResult>({ type: "ui:testProvider", input });
       if (result.ok) {
-        setNotice(t("Providers.testOk", { model: result.model, ms: result.latencyMs }));
+        toast.success(t("Providers.testOk", { model: result.model, ms: result.latencyMs }));
       } else {
         report(result, input.baseUrl);
       }
@@ -153,7 +167,6 @@ export function ProvidersView() {
   /** Row-level "Fetch models": opens the editor with the catalogue already in it. */
   const pullModels = async (provider: ProviderView): Promise<void> => {
     setError(null);
-    setNotice(null);
     setNeedGrant(null);
     setRemote(null);
     setDraft({
@@ -177,15 +190,17 @@ export function ProvidersView() {
         return;
       }
       setRemote(result);
-      setNotice(
-        result.models.length
-          ? t("Providers.fetched", {
-              host: result.host,
-              count: result.models.length,
-              ms: result.latencyMs,
-            })
-          : t("Providers.fetchEmpty", { host: result.host }),
-      );
+      if (result.models.length) {
+        toast.success(
+          t("Providers.fetched", {
+            host: result.host,
+            count: result.models.length,
+            ms: result.latencyMs,
+          }),
+        );
+      } else {
+        toast.warning(t("Providers.fetchEmpty", { host: result.host }));
+      }
 
       // A fetched list with nothing selected yet is a form the user has to fill
       // in by hand; taking the whole list is what they are going to do anyway.
@@ -213,164 +228,193 @@ export function ProvidersView() {
   const remoteModels = remote?.ok ? remote.models : [];
 
   return (
-    <>
+    <div className="flex flex-col gap-3">
       <Card title={t("Providers.title")} description={t("Providers.description")}>
         {providers.length === 0 ? (
-          <p className="empty">{t("Providers.empty")}</p>
+          <p className="py-6 text-center text-[12.5px] text-muted-foreground">
+            {t("Providers.empty")}
+          </p>
         ) : (
-          providers.map((provider) => (
-            <div className="item" key={provider.id}>
-              <div>
-                <div className="item-title">
-                  {provider.name}{" "}
+          <div className="divide-y divide-border">
+            {providers.map((provider) => (
+              <div key={provider.id} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[13.5px] font-semibold">{provider.name}</span>
                   {provider.isDefault ? (
-                    <span className="badge badge-ok">{t("Common.default")}</span>
-                  ) : null}{" "}
+                    <Badge variant="success">{t("Common.default")}</Badge>
+                  ) : null}
                   {access[provider.id] === false ? (
-                    <span className="badge badge-warn">{t("Common.noAccess")}</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="warning" className="cursor-help">
+                          {t("Common.noAccess")}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>{t("Providers.grantHint")}</TooltipContent>
+                    </Tooltip>
                   ) : null}
                 </div>
-                <div className="mono">{provider.baseUrl}</div>
-                <div className="muted">
+                <div className="truncate font-mono text-[11px] text-muted-foreground">
+                  {provider.baseUrl}
+                </div>
+                <div className="text-[11.5px] text-muted-foreground">
                   {provider.models.join(" · ") || t("Providers.noModels")} ·{" "}
                   {t("Providers.savedAt", { when: timeAgo(provider.updatedAt) })}
                 </div>
-              </div>
-              <div className="actions">
-                {access[provider.id] === false ? (
-                  <button
-                    className="btn"
+                <div className="flex flex-wrap gap-1.5">
+                  {access[provider.id] === false ? (
+                    <Button
+                      variant="outline"
+                      size={actionSize}
+                      onClick={() => {
+                        const origin = providerOrigin(provider.baseUrl);
+                        if (origin) openGrantWindow(origin);
+                      }}
+                    >
+                      {t("Common.grantAccess")}
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    size={actionSize}
+                    disabled={busy !== null}
+                    onClick={() =>
+                      void testConnection(provider.id, {
+                        id: provider.id,
+                        baseUrl: provider.baseUrl,
+                        model: provider.defaultModel,
+                      })
+                    }
+                  >
+                    {busy?.kind === "test" && busy.target === provider.id
+                      ? t("Providers.testing")
+                      : t("Providers.test")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size={actionSize}
+                    disabled={busy !== null}
+                    onClick={() => void pullModels(provider)}
+                  >
+                    {busy?.kind === "models" && busy.target === provider.id
+                      ? t("Providers.fetching")
+                      : t("Providers.fetch")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size={actionSize}
                     onClick={() => {
-                      const origin = providerOrigin(provider.baseUrl);
-                      if (origin) openGrantWindow(origin);
+                      setRemote(null);
+                      setError(null);
+                      setNeedGrant(null);
+                      setDraft({
+                        id: provider.id,
+                        name: provider.name,
+                        baseUrl: provider.baseUrl,
+                        models: provider.models.join(", "),
+                        defaultModel: provider.defaultModel ?? "",
+                        apiKey: "",
+                      });
                     }}
                   >
-                    {t("Common.grantAccess")}
-                  </button>
-                ) : null}
-                <button
-                  className="btn"
-                  disabled={busy !== null}
-                  onClick={() =>
-                    void testConnection(provider.id, {
-                      id: provider.id,
-                      baseUrl: provider.baseUrl,
-                      model: provider.defaultModel,
-                    })
-                  }
-                >
-                  {busy?.kind === "test" && busy.target === provider.id
-                    ? t("Providers.testing")
-                    : t("Providers.test")}
-                </button>
-                <button
-                  className="btn"
-                  disabled={busy !== null}
-                  onClick={() => void pullModels(provider)}
-                >
-                  {busy?.kind === "models" && busy.target === provider.id
-                    ? t("Providers.fetching")
-                    : t("Providers.fetch")}
-                </button>
-                <button
-                  className="btn"
-                  onClick={() => {
-                    setRemote(null);
-                    setError(null);
-                    setNotice(null);
-                    setDraft({
-                      id: provider.id,
-                      name: provider.name,
-                      baseUrl: provider.baseUrl,
-                      models: provider.models.join(", "),
-                      defaultModel: provider.defaultModel ?? "",
-                      apiKey: "",
-                    });
-                  }}
-                >
-                  {t("Common.edit")}
-                </button>
-                {provider.isDefault ? null : (
-                  <button className="btn" onClick={() => void makeDefault(provider.id)}>
-                    {t("Providers.makeDefault")}
-                  </button>
-                )}
-                <button className="btn btn-danger" onClick={() => void remove(provider.id)}>
-                  {t("Common.remove")}
-                </button>
+                    {t("Common.edit")}
+                  </Button>
+                  {provider.isDefault ? null : (
+                    <Button
+                      variant="outline"
+                      size={actionSize}
+                      onClick={() => void makeDefault(provider.id)}
+                    >
+                      {t("Providers.makeDefault")}
+                    </Button>
+                  )}
+                  <Button
+                    variant="destructive"
+                    size={actionSize}
+                    onClick={() => void remove(provider.id)}
+                  >
+                    {t("Common.remove")}
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </Card>
 
-      {notice ? <p className="badge badge-ok">{notice}</p> : null}
       <ErrorText error={error} />
       {needGrant ? (
-        <button className="btn" onClick={() => openGrantWindow(needGrant)}>
+        <Button variant="outline" size={actionSize} className="self-start" onClick={() => openGrantWindow(needGrant)}>
           {t("Common.grantAccess")}
-        </button>
+        </Button>
       ) : null}
 
       {draft ? (
         <Card title={draft.id ? t("Providers.editTitle") : t("Providers.addTitle")}>
-          <form className="stack" onSubmit={save}>
+          <form className="flex flex-col gap-3" onSubmit={save}>
             {draft.id ? null : (
               <Field label={t("Providers.preset")}>
-                <select
-                  className="input"
-                  onChange={(event) => {
-                    const preset = PROVIDER_PRESETS.find(
-                      (candidate) => candidate.key === event.target.value,
-                    );
-                    if (!preset) {
+                <Select
+                  value={preset}
+                  onValueChange={(key) => {
+                    setPreset(key);
+                    const chosen = PROVIDER_PRESETS.find((candidate) => candidate.key === key);
+                    if (!chosen) {
                       setDraft({ ...draft, name: "", baseUrl: "https://", models: "" });
                       return;
                     }
                     setDraft({
                       ...draft,
-                      name: preset.name,
-                      baseUrl: preset.baseUrl,
-                      models: preset.models.join(", "),
-                      defaultModel: preset.defaultModel,
+                      name: chosen.name,
+                      baseUrl: chosen.baseUrl,
+                      models: chosen.models.join(", "),
+                      defaultModel: chosen.defaultModel,
                     });
                   }}
                 >
-                  {PROVIDER_PRESETS.map((preset) => (
-                    <option key={preset.key} value={preset.key}>
-                      {preset.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger>
+                    <SelectValue>
+                      {PROVIDER_PRESETS.find((option) => option.key === preset)?.name}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROVIDER_PRESETS.map((option) => (
+                      <SelectItem key={option.key} value={option.key}>
+                        {option.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
             )}
 
-            <Field label={t("Providers.name")}>
-              <input
-                className="input"
+            <Field label={t("Providers.name")} htmlFor="provider-name">
+              <Input
+                id="provider-name"
                 value={draft.name}
                 onChange={(event) => setDraft({ ...draft, name: event.target.value })}
               />
             </Field>
 
-            <Field label={t("Providers.baseUrl")} hint={t("Providers.baseUrlHint")}>
-              <input
-                className="input"
+            <Field label={t("Providers.baseUrl")} hint={t("Providers.baseUrlHint")} htmlFor="provider-url">
+              <Input
+                id="provider-url"
                 value={draft.baseUrl}
                 onChange={(event) => setDraft({ ...draft, baseUrl: event.target.value })}
               />
             </Field>
 
-            <Field label={t("Providers.models")} hint={t("Providers.modelsHint")}>
-              <div className="stack">
-                <input
-                  className="input"
+            <Field label={t("Providers.models")} hint={t("Providers.modelsHint")} htmlFor="provider-models">
+              <div className="flex flex-col gap-2">
+                <Input
+                  id="provider-models"
                   value={draft.models}
                   onChange={(event) => setDraft({ ...draft, models: event.target.value })}
                 />
-                <div className="actions">
-                  <button
-                    className="btn"
+                <div className="flex flex-wrap gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
                     type="button"
                     disabled={busy !== null}
                     onClick={() =>
@@ -384,10 +428,11 @@ export function ProvidersView() {
                     {busy?.kind === "models" && busy.target === "draft"
                       ? t("Providers.fetching")
                       : t("Providers.fetch")}
-                  </button>
+                  </Button>
                   {remoteModels.length > 0 ? (
-                    <button
-                      className="btn"
+                    <Button
+                      variant="outline"
+                      size="sm"
                       type="button"
                       onClick={() =>
                         setDraft({
@@ -398,22 +443,26 @@ export function ProvidersView() {
                       }
                     >
                       {t("Providers.addAll")}
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
                 {remoteModels.length > 0 ? (
                   // Chips instead of a dump: the fetched list is usually wider
                   // than what the user wants in the pool, and a click per model
                   // is clearer than editing a comma-separated line by hand.
-                  <div className="chips">
+                  <div className="flex flex-wrap gap-1">
                     {remoteModels.map((model) => {
                       const picked = modelList(draft.models).includes(model);
                       return (
                         <button
                           key={model}
                           type="button"
-                          className={picked ? "chip chip-on" : "chip"}
                           aria-pressed={picked}
+                          className={
+                            picked
+                              ? "cursor-pointer rounded-md bg-accent px-2 py-1 font-mono text-[11px] font-semibold text-accent-foreground transition-colors"
+                              : "cursor-pointer rounded-md bg-secondary px-2 py-1 font-mono text-[11px] text-secondary-foreground transition-colors hover:bg-accent/60"
+                          }
                           onClick={() =>
                             setDraft({
                               ...draft,
@@ -432,9 +481,9 @@ export function ProvidersView() {
               </div>
             </Field>
 
-            <Field label={t("Providers.defaultModel")}>
-              <input
-                className="input"
+            <Field label={t("Providers.defaultModel")} htmlFor="provider-default-model">
+              <Input
+                id="provider-default-model"
                 list="fluid-model-options"
                 value={draft.defaultModel}
                 onChange={(event) => setDraft({ ...draft, defaultModel: event.target.value })}
@@ -449,21 +498,23 @@ export function ProvidersView() {
             <Field
               label={t("Providers.apiKey")}
               hint={draft.id ? t("Providers.apiKeyKeep") : t("Providers.apiKeyNew")}
+              htmlFor="provider-key"
             >
-              <input
-                className="input"
+              <Input
+                id="provider-key"
                 type="password"
                 value={draft.apiKey}
                 onChange={(event) => setDraft({ ...draft, apiKey: event.target.value })}
               />
             </Field>
 
-            <div className="actions">
-              <button className="btn btn-primary" type="submit" disabled={saving}>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" size="sm" disabled={saving}>
                 {saving ? t("Providers.saving") : t("Providers.save")}
-              </button>
-              <button
-                className="btn"
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 type="button"
                 disabled={busy !== null}
                 onClick={() =>
@@ -478,9 +529,10 @@ export function ProvidersView() {
                 {busy?.kind === "test" && busy.target === "draft"
                   ? t("Providers.testing")
                   : t("Providers.test")}
-              </button>
-              <button
-                className="btn"
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={() => {
                   setDraft(null);
@@ -489,17 +541,19 @@ export function ProvidersView() {
                 }}
               >
                 {t("Common.cancel")}
-              </button>
+              </Button>
             </div>
-            <p className="hint">{t("Providers.grantHint")}</p>
+            <p className="text-[11.5px] leading-snug text-muted-foreground">
+              {t("Providers.grantHint")}
+            </p>
           </form>
         </Card>
       ) : (
-        <button className="btn btn-primary" onClick={() => setDraft({ ...EMPTY })}>
+        <Button className="self-start" onClick={() => setDraft({ ...EMPTY })}>
           {t("Providers.add")}
-        </button>
+        </Button>
       )}
-    </>
+    </div>
   );
 }
 

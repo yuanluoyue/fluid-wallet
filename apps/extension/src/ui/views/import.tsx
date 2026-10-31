@@ -1,8 +1,10 @@
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useI18n } from "../../i18n/react";
 import type { ImportResult } from "../../wallet/backup";
-import { ErrorText, Field, send } from "../components";
+import { ErrorText, Field, Screen, send } from "../components";
 
 /**
  * Restoring a backup, in the window the popup opens for it.
@@ -41,49 +43,51 @@ export function ImportView() {
   };
 
   return (
-    <div className="narrow">
-      <h1 className="hero-title">{t("Import.title")}</h1>
-      <p className="muted">{t("Import.body")}</p>
+    <Screen>
+      <div className="flex flex-col gap-1.5">
+        <h1 className="text-xl font-semibold tracking-tight">{t("Import.title")}</h1>
+        <p className="text-[12.5px] leading-relaxed text-muted-foreground">{t("Import.body")}</p>
+      </div>
 
       <form
-        className="card stack"
-        style={{ marginTop: 18 }}
+        className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
         onSubmit={(event) => {
           event.preventDefault();
           void restore();
         }}
       >
-        <Field label={t("Import.file")}>
-          <input
-            className="input"
+        <Field label={t("Import.file")} htmlFor="backup-file">
+          <Input
+            id="backup-file"
             type="file"
             accept="application/json,.json"
+            className="h-auto py-2 text-[12.5px] file:mr-2"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
         </Field>
-        <Field label={t("Import.passphrase")} hint={t("Import.passphraseHint")}>
-          <input
-            className="input"
+        <Field label={t("Import.passphrase")} hint={t("Import.passphraseHint")} htmlFor="import-passphrase">
+          <Input
+            id="import-passphrase"
             type="password"
             value={passphrase}
             onChange={(event) => setPassphrase(event.target.value)}
           />
         </Field>
         <ErrorText error={error} />
-        {notice ? <p className="badge badge-ok">{notice}</p> : null}
-        <div className="actions">
-          <button
-            className="btn btn-primary"
-            type="submit"
-            disabled={!file || passphrase.length < 8 || busy}
-          >
+        {notice ? (
+          <p className="rounded-md bg-success/10 px-3 py-2 text-[12px] leading-relaxed text-success">
+            {notice}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" size="sm" disabled={!file || passphrase.length < 8 || busy}>
             {busy ? t("Import.submitting") : t("Import.submit")}
-          </button>
-          <button className="btn" type="button" onClick={() => window.close()}>
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => window.close()}>
             {t("Common.close")}
-          </button>
+          </Button>
         </div>
       </form>
-    </div>
+    </Screen>
   );
 }

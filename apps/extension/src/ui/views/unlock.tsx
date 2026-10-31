@@ -1,8 +1,10 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useI18n } from "../../i18n/react";
 import type { UiState } from "../../wallet/ui";
-import { ErrorText, Field, send } from "../components";
+import { ErrorText, Field, Screen, send } from "../components";
 import { LanguageSelect } from "../language";
 
 /**
@@ -11,10 +13,21 @@ import { LanguageSelect } from "../language";
  */
 function MinimalHeader() {
   return (
-    <div className="topbar topbar-minimal">
-      <span />
+    <div className="flex items-center justify-end">
       <LanguageSelect compact />
     </div>
+  );
+}
+
+/** Shared shape of the two screens so they cannot drift apart visually. */
+function AuthForm({ children, onSubmit }: { children: ReactNode; onSubmit: (event: FormEvent) => void }) {
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4"
+    >
+      {children}
+    </form>
   );
 }
 
@@ -43,36 +56,40 @@ export function Onboarding({ onDone }: { onDone: (state: UiState) => void }) {
   };
 
   return (
-    <main className="narrow">
+    <Screen>
       <MinimalHeader />
-      <h1 className="hero-title">{t("Onboarding.title")}</h1>
-      <p className="muted">{t("Onboarding.body")}</p>
+      <div className="flex flex-col gap-1.5">
+        <h1 className="text-xl font-semibold tracking-tight">{t("Onboarding.title")}</h1>
+        <p className="text-[12.5px] leading-relaxed text-muted-foreground">{t("Onboarding.body")}</p>
+      </div>
 
-      <form className="card stack" style={{ marginTop: 20 }} onSubmit={submit}>
-        <Field label={t("Onboarding.password")} hint={t("Onboarding.passwordHint")}>
-          <input
-            className="input"
+      <AuthForm onSubmit={submit}>
+        <Field label={t("Onboarding.password")} hint={t("Onboarding.passwordHint")} htmlFor="setup-password">
+          <Input
+            id="setup-password"
             type="password"
-            value={password}
             autoFocus
+            value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
         </Field>
-        <Field label={t("Onboarding.confirm")}>
-          <input
-            className="input"
+        <Field label={t("Onboarding.confirm")} htmlFor="setup-confirm">
+          <Input
+            id="setup-confirm"
             type="password"
             value={confirm}
             onChange={(event) => setConfirm(event.target.value)}
           />
         </Field>
         <ErrorText error={error} />
-        <button className="btn btn-primary" type="submit" disabled={busy || password.length < 8}>
+        <Button type="submit" disabled={busy || password.length < 8}>
           {busy ? t("Onboarding.submitting") : t("Onboarding.submit")}
-        </button>
-        <p className="hint">{t("Onboarding.noRecovery")}</p>
-      </form>
-    </main>
+        </Button>
+        <p className="text-[11.5px] leading-snug text-muted-foreground">
+          {t("Onboarding.noRecovery")}
+        </p>
+      </AuthForm>
+    </Screen>
   );
 }
 
@@ -96,30 +113,32 @@ export function Unlock({ onUnlocked }: { onUnlocked: (state: UiState) => void })
   };
 
   return (
-    <main className="narrow">
+    <Screen>
       <MinimalHeader />
-      <div className="brand" style={{ marginBottom: 18 }}>
-        <span className="dot" aria-hidden />
-        Fluid Wallet
+      <div className="flex flex-col gap-1.5">
+        <div className="mb-1 flex items-center gap-2.5 text-[14px] font-semibold tracking-tight">
+          <span className="size-2.5 rounded-full bg-primary ring-4 ring-primary/10" aria-hidden />
+          Fluid Wallet
+        </div>
+        <h1 className="text-xl font-semibold tracking-tight">{t("Unlock.title")}</h1>
+        <p className="text-[12.5px] leading-relaxed text-muted-foreground">{t("Unlock.body")}</p>
       </div>
-      <h1 className="hero-title">{t("Unlock.title")}</h1>
-      <p className="muted">{t("Unlock.body")}</p>
 
-      <form className="card stack" style={{ marginTop: 20 }} onSubmit={submit}>
-        <Field label={t("Unlock.password")}>
-          <input
-            className="input"
+      <AuthForm onSubmit={submit}>
+        <Field label={t("Unlock.password")} htmlFor="unlock-password">
+          <Input
+            id="unlock-password"
             type="password"
-            value={password}
             autoFocus
+            value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
         </Field>
         <ErrorText error={error} />
-        <button className="btn btn-primary" type="submit" disabled={busy || password.length === 0}>
+        <Button type="submit" disabled={busy || password.length === 0}>
           {busy ? t("Unlock.submitting") : t("Unlock.submit")}
-        </button>
-      </form>
-    </main>
+        </Button>
+      </AuthForm>
+    </Screen>
   );
 }

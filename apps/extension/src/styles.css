@@ -1,0 +1,109 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Tailwind v4, no config file: the theme lives here.
+ *
+ * Light only. A wallet panel is opened for seconds at a time, from a toolbar
+ * icon, and a dark variant would have to be checked against every surface it
+ * borrows (the approval window, the options tab, the first-run page) before it
+ * could be trusted. Until that check exists, shipping a half-tested dark theme
+ * is worse than not shipping one.
+ *
+ * The palette is the one the hand-written stylesheet used, mapped onto shadcn's
+ * variable names so the generated components look like this wallet and not like
+ * the demo they ship with.
+ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  --radius: 0.625rem;
+
+  --background: #f6f7f9;
+  --foreground: #14181f;
+  --card: #ffffff;
+  --card-foreground: #14181f;
+  --popover: #ffffff;
+  --popover-foreground: #14181f;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f3f5;
+  --secondary-foreground: #14181f;
+  --muted: #f1f3f5;
+  --muted-foreground: #6b7480;
+  /* shadcn uses `accent` for the hover/selected wash, which is this wallet's
+     `--accent-soft` — not the brand color. The brand is `--primary`. */
+  --accent: #eef0ff;
+  --accent-foreground: #4338ca;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --success: #047857;
+  --warning: #b45309;
+  --border: #e3e6ea;
+  --input: #e3e6ea;
+  --ring: #4f46e5;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* Chrome sizes a toolbar popup to its content and gives it a scroller of its
+     own; the wallet wants one fixed frame instead. `data-surface` is set on
+     <body> by `mountWallet()`, so the rule is a selector rather than a class
+     every view has to remember. */
+  body[data-surface="popup"] {
+    width: 400px;
+  }
+}
+
+@layer utilities {
+  /* Numbers, host names and model ids line up only in a monospaced face. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}

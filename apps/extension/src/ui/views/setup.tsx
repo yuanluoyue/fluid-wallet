@@ -1,6 +1,9 @@
 import { browser } from "wxt/browser";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "../../i18n/react";
+import { Screen } from "../components";
 
 /**
  * Explains why a site could not connect: there is no provider to connect to.
@@ -30,35 +33,34 @@ export function SetupView({ origin }: { origin: string }) {
 
   if (!/^https?:\/\/[^/]+$/.test(origin)) {
     return (
-      <div className="narrow">
-        <h1 className="hero-title">{t("Setup.unknownTitle")}</h1>
-        <p className="muted">{t("Setup.unknownBody")}</p>
-        <button className="btn" style={{ marginTop: 16 }} onClick={() => window.close()}>
+      <Screen>
+        <h1 className="text-xl font-semibold tracking-tight">{t("Setup.unknownTitle")}</h1>
+        <p className="text-[12.5px] text-muted-foreground">{t("Setup.unknownBody")}</p>
+        <Button variant="outline" className="self-start" onClick={() => window.close()}>
           {t("Common.close")}
-        </button>
-      </div>
+        </Button>
+      </Screen>
     );
   }
 
   return (
-    <div className="narrow">
-      <p className="badge badge-warn">{t("Setup.badge")}</p>
-      <h1 className="hero-title" style={{ marginTop: 10 }}>
-        {t("Setup.title")}
-      </h1>
-      <p className="mono">{origin}</p>
-      <p className="muted" style={{ marginTop: 10 }}>
-        {t("Setup.body")}
-      </p>
-
-      <div className="stack" style={{ marginTop: 18 }}>
-        <button className="btn btn-primary" onClick={() => void openProviders()}>
-          {t("Setup.add")}
-        </button>
-        <button className="btn" onClick={() => window.close()}>
-          {t("Setup.later")}
-        </button>
+    <Screen>
+      <div className="flex flex-col gap-1.5">
+        <Badge variant="warning" className="mb-1 self-start">
+          {t("Setup.badge")}
+        </Badge>
+        <h1 className="text-xl font-semibold tracking-tight">{t("Setup.title")}</h1>
+        <p className="font-mono text-[11.5px] text-muted-foreground">{origin}</p>
       </div>
-    </div>
+
+      <p className="text-[12.5px] leading-relaxed text-muted-foreground">{t("Setup.body")}</p>
+
+      <div className="flex flex-col gap-2">
+        <Button onClick={() => void openProviders()}>{t("Setup.add")}</Button>
+        <Button variant="ghost" onClick={() => window.close()}>
+          {t("Setup.later")}
+        </Button>
+      </div>
+    </Screen>
   );
 }

@@ -114,6 +114,9 @@ export const en = {
     empty: "No app has connected to this wallet yet.",
     revoke: "Revoke",
     revokeAll: "Revoke all {count}",
+    revokeAllTitle: "Revoke every connected app?",
+    revokeAllBody:
+      "{count, plural, one {This app} other {All # apps}} will have to ask again before using your models. Nothing else is deleted.",
     revokeAllConfirm: "Yes, revoke all {count}",
     keep: "Keep them",
     granted: "Granted {when}",

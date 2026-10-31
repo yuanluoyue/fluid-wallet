@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { useI18n } from "../../i18n/react";
 import type { ActivityView as LogEntry } from "../../wallet/ui";
 import { Card, ErrorText, hostOf, send, useFormatters } from "../components";
 
-const STATUS_CLASS: Record<string, string> = {
-  success: "badge badge-ok",
-  error: "badge badge-danger",
-  cancelled: "badge badge-warn",
-  timeout: "badge badge-warn",
+const STATUS_VARIANT: Record<string, "success" | "destructive" | "warning"> = {
+  success: "success",
+  error: "destructive",
+  cancelled: "warning",
+  timeout: "warning",
 };
 
 export function ActivityView() {
@@ -28,33 +29,39 @@ export function ActivityView() {
   return (
     <Card title={t("Activity.title")} description={t("Activity.description")}>
       {logs.length === 0 ? (
-        <p className="empty">{t("Activity.empty")}</p>
+        <p className="py-6 text-center text-[12.5px] text-muted-foreground">{t("Activity.empty")}</p>
       ) : (
-        <div className="table-wrap">
-          <table className="logs">
+        <div className="-mx-1 overflow-x-auto">
+          <table className="w-full border-collapse text-[12px]">
             <thead>
-              <tr>
-                <th>{t("Activity.when")}</th>
-                <th>{t("Activity.app")}</th>
-                <th>{t("Activity.model")}</th>
-                <th>{t("Activity.status")}</th>
-                <th>{t("Activity.time")}</th>
-                <th>{t("Activity.tokens")}</th>
+              <tr className="text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                <th className="px-1 pb-2 font-medium">{t("Activity.when")}</th>
+                <th className="px-1 pb-2 font-medium">{t("Activity.app")}</th>
+                <th className="px-1 pb-2 font-medium">{t("Activity.model")}</th>
+                <th className="px-1 pb-2 font-medium">{t("Activity.status")}</th>
+                <th className="px-1 pb-2 text-right font-medium">{t("Activity.time")}</th>
+                <th className="px-1 pb-2 text-right font-medium">{t("Activity.tokens")}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border">
               {logs.map((log) => (
-                <tr key={log.id}>
-                  <td>{timeAgo(log.startedAt)}</td>
-                  <td>{hostOf(log.origin)}</td>
-                  <td className="mono">{log.model}</td>
-                  <td>
-                    <span className={STATUS_CLASS[log.status] ?? "badge"}>
-                      {t(`Activity.statuses.${log.status}`)}
-                    </span>
+                <tr key={log.id} className="align-middle">
+                  <td className="px-1 py-2 whitespace-nowrap text-muted-foreground">
+                    {timeAgo(log.startedAt)}
                   </td>
-                  <td>{duration(log.durationMs)}</td>
-                  <td>
+                  <td className="max-w-[110px] truncate px-1 py-2">{hostOf(log.origin)}</td>
+                  <td className="max-w-[110px] truncate px-1 py-2 font-mono text-[11px]">
+                    {log.model}
+                  </td>
+                  <td className="px-1 py-2">
+                    <Badge variant={STATUS_VARIANT[log.status] ?? "default"}>
+                      {t(`Activity.statuses.${log.status}`)}
+                    </Badge>
+                  </td>
+                  <td className="tabular px-1 py-2 text-right whitespace-nowrap">
+                    {duration(log.durationMs)}
+                  </td>
+                  <td className="tabular px-1 py-2 text-right whitespace-nowrap text-muted-foreground">
                     {log.inputTokens === undefined && log.outputTokens === undefined
                       ? "—"
                       : `${log.inputTokens ?? 0} → ${log.outputTokens ?? 0}`}
