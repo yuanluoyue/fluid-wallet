@@ -7,6 +7,10 @@ const pkg = (name: string) =>
 
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
+  // Not the default `.output`: a dot-folder is hidden in Chrome's "Load
+  // unpacked" picker, so the one path the user has to select by hand would be
+  // the one the picker hides.
+  outDir: "dist",
   manifest: {
     name: "Fluid Wallet",
     description: "Local-first LLM wallet for web AI applications.",

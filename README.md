@@ -79,10 +79,15 @@ pnpm test
 Then, in separate terminals:
 
 ```bash
-pnpm dev:extension     # load apps/extension/.output/chrome-mv3 as unpacked
+pnpm dev:extension     # prints apps/extension/dist/chrome-mv3-dev; load it as unpacked
 pnpm dev:playground    # http://localhost:5174
 pnpm dev:website       # http://localhost:3000
 ```
+
+The extension build is not launched for you on purpose: Chrome has no way to
+watch a folder, so `Load unpacked` → `apps/extension/dist/chrome-mv3-dev` is a
+one-time step, and ⟳ on the card reloads it after a rebuild. (`dist/`, not
+WXT's default `.output/`, because the picker hides dot-folders.)
 
 ## Deploying the website
 
