@@ -1,4 +1,4 @@
-import type { FluidQuota } from "@fluid-wallet/protocol";
+import { getFluidBridge, type FluidQuota } from "@fluid-wallet/protocol";
 import {
   FluidClient,
   connectFluid,
@@ -83,10 +83,24 @@ export function App() {
 
   useEffect(() => () => client.dispose(), [client]);
 
+  // The chips read `client.state`, which the client mutates without React
+  // knowing. Subscribing is what makes "Detect wallet" actually update the page
+  // — including the retry a cold service worker needs.
+  const [, setRevision] = useState(0);
+  useEffect(
+    () => client.subscribe(() => setRevision((revision) => revision + 1)),
+    [client],
+  );
+
   useEffect(() => {
     // Detecting up front lets the page say "no wallet installed" before the
-    // person clicks anything, instead of failing on their first message.
-    void client.detect().then(() => setConnected(false));
+    // person clicks anything, instead of failing on their first message. A
+    // rejection here is not fatal — it lands in `client.state.lastError` and the
+    // page keeps working — so it must not become an unhandled rejection.
+    void client.detect().then(
+      () => setConnected(false),
+      () => setConnected(false),
+    );
   }, [client]);
 
   const refreshUsage = useCallback(
@@ -215,10 +229,13 @@ export function App() {
   const available = client.state.availability;
   const locked = client.state.wallet?.locked ?? false;
   // The page cannot see the extension, only whether a script put a bridge on
-  // `window`. That one bit is the difference between "not installed" and
-  // "installed but not answering", and it is worth showing instead of asking
-  // anyone to open DevTools to retype it.
-  const bridgePresent = typeof window !== "undefined" && "fluid" in window;
+  // `window` — and the bridge can say whether the content script behind it ever
+  // announced itself. That one bit separates "nothing injected" from "the
+  // extension was reloaded under this tab", so it is shown rather than left for
+  // whoever opens DevTools next.
+  const bridge = typeof window === "undefined" ? undefined : getFluidBridge();
+  const diagnostics = bridge?.diagnostics?.();
+  const bridgePresent = bridge !== undefined;
 
   return (
     <main style={s.page}>
@@ -247,10 +264,17 @@ export function App() {
 
       {available === "unavailable" ? (
         <p style={{ ...s.mono, color: "#8a8f99", marginTop: 10, lineHeight: 1.7 }}>
-          origin {window.location.origin} · nothing answered `wallet.getInfo` within 2s.{" "}
-          {bridgePresent
-            ? "The bridge is here, so the extension loaded and its background worker did not answer — check chrome://extensions for errors, then reload."
-            : "No script injected here. Load apps/extension/dist/chrome-mv3 as an unpacked extension, then reload this page; a dev-server build only injects while its server runs."}
+          origin {window.location.origin} · window.fluid{" "}
+          {bridgePresent ? "present" : "undefined"}
+          {diagnostics
+            ? ` · relay ${diagnostics.relay ? `yes (${diagnostics.relayAnnouncedAfterMs ?? 0}ms)` : "never announced"} · requests ${diagnostics.requests} · answers ${diagnostics.answers}`
+            : ""}
+          <br />
+          {!bridgePresent
+            ? "No script injected here. Load apps/extension/dist/chrome-mv3 as an unpacked extension, then reload this page; a dev-server build only injects while its server runs."
+            : diagnostics && !diagnostics.relay
+              ? "The extension is in this page, but the content script that forwards requests to it is gone — the extension was reloaded after this tab opened. Reload the page."
+              : "Requests left the page and nothing came back: the extension's background worker is the stuck half. Open chrome://extensions → Fluid Wallet → Errors."}
         </p>
       ) : null}
 

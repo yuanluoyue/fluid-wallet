@@ -100,21 +100,26 @@ export async function connectFluid(options: ConnectFluidOptions = {}): Promise<F
     };
   }
 
-  // Nothing answered — but "nothing answered" hides two very different pages.
-  // A bridge means the extension did inject here and its background worker is
-  // the part that failed; no bridge means no script ever ran. Only the page can
-  // tell those apart, so the distinction travels with the error instead of
-  // being guessed at by whoever reads the message.
+  // Nothing answered — but "nothing answered" hides three very different
+  // pages, and the fix differs for each. A bridge means the extension did
+  // inject here; a bridge whose relay never announced itself means the tab
+  // predates the extension's last reload; no bridge at all means no extension.
+  // The page can tell these apart, so the distinction travels with the error
+  // instead of being guessed at by whoever reads the message.
   const injected = client.transportKind === "bridge";
+  const relayGone = injected && client.diagnostics?.relay === false;
+  const reason = !injected ? "not-injected" : relayGone ? "no-relay" : "worker-silent";
 
   const apiKey = options.devApiKey ?? env("FLUID_DEV_API_KEY");
   if (!apiKey) {
     throw new FluidError(
       FluidErrorCode.NotInstalled,
-      injected
-        ? "Fluid Wallet is injected in this page, but its background worker never answered."
-        : "No Fluid Wallet bridge exists in this page: the extension is not loaded, or it did not inject here.",
-      { reason: injected ? "worker-silent" : "not-injected" },
+      relayGone
+        ? "Fluid Wallet was reloaded after this page opened, so the part of it that talks to the extension is gone."
+        : injected
+          ? "Fluid Wallet is injected in this page, but its background worker never answered."
+          : "No Fluid Wallet bridge exists in this page: the extension is not loaded, or it did not inject here.",
+      { reason },
     );
   }
   if (isProduction()) {

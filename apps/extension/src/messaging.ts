@@ -5,6 +5,12 @@ export const FLUID_KIND = {
   request: "request",
   response: "response",
   event: "event",
+  /**
+   * Announced by the isolated relay when it starts listening. The bridge cannot
+   * see the relay, so without this hello a dead relay and a dead wallet look
+   * identical from the page.
+   */
+  ready: "ready",
 } as const;
 
 /** Message type used for the isolated content script → service worker hop. */

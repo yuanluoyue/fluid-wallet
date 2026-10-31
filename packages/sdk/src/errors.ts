@@ -75,6 +75,17 @@ export function describeFluidError(error: unknown): FluidIssue {
       // which one it is (there is a bridge or there is not), so it says so
       // rather than sending people to reinstall something that is already
       // there.
+      if (data.reason === "no-relay") {
+        return {
+          ...base,
+          kind: "unavailable",
+          action: "retry",
+          title: "Reload this page to reconnect",
+          detail:
+            "The wallet was reloaded or updated after this page opened. The page kept its old bridge, but the script that forwards requests to the extension is gone, so nothing can answer here. A reload fixes it; new page loads pick up the new build automatically.",
+        };
+      }
+
       if (data.reason === "worker-silent") {
         return {
           ...base,

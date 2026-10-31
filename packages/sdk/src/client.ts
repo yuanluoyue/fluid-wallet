@@ -29,6 +29,7 @@ import {
   type FluidSession,
   type FluidQuota,
   type FluidWalletInfo,
+  type FluidBridgeDiagnostics,
   type FluidEvent,
   type FluidFinishReason,
 } from "@fluid-wallet/protocol";
@@ -136,6 +137,17 @@ export class FluidClient {
 
   get transportKind(): FluidTransport["kind"] {
     return this.#transport.kind;
+  }
+
+  /**
+   * What the page-side script says about its own pipe, when it can say anything.
+   *
+   * A missing bridge is not the same as a bridge whose relay is gone: the first
+   * means nothing was injected, the second means the extension is loaded but
+   * the tab predates its last reload.
+   */
+  get diagnostics(): FluidBridgeDiagnostics | undefined {
+    return this.#transport.diagnostics?.();
   }
 
   subscribe(listener: (state: FluidClientState) => void): () => void {

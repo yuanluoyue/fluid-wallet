@@ -43,18 +43,26 @@ function isEnvelope(value: unknown): value is BridgeEnvelope {
  * place allowed to talk to the service worker.
  */
 function installBridge(): void {
+  const startedAt = Date.now();
   const pending = new Map<string, PendingRequest>();
   const handlers = new Set<(event: FluidEvent) => void>();
+  const stats = { requests: 0, answers: 0, relayAnnouncedAt: null as number | null };
 
   window.addEventListener("message", (event: MessageEvent<unknown>) => {
     if (event.source !== window || !isEnvelope(event.data)) return;
     const envelope = event.data;
+
+    if (envelope.kind === FLUID_KIND.ready) {
+      stats.relayAnnouncedAt ??= Date.now();
+      return;
+    }
 
     if (envelope.kind === FLUID_KIND.response && envelope.response) {
       const entry = pending.get(envelope.response.id);
       if (!entry) return;
       window.clearTimeout(entry.timer);
       pending.delete(envelope.response.id);
+      stats.answers += 1;
       entry.resolve(envelope.response);
       return;
     }
@@ -66,6 +74,16 @@ function installBridge(): void {
 
   const bridge: FluidBridge = {
     protocolVersion: PROTOCOL_VERSION,
+    diagnostics() {
+      return {
+        relay: stats.relayAnnouncedAt !== null,
+        ...(stats.relayAnnouncedAt === null
+          ? {}
+          : { relayAnnouncedAfterMs: stats.relayAnnouncedAt - startedAt }),
+        requests: stats.requests,
+        answers: stats.answers,
+      };
+    },
     request(request: FluidRequest): Promise<FluidResponse> {
       return new Promise<FluidResponse>((resolve) => {
         // Inference streams for as long as the model produces tokens, so it
@@ -73,6 +91,8 @@ function installBridge(): void {
         const deadlineMs = request.method.startsWith("inference.")
           ? FLUID_LIMITS.inferenceTimeoutMs
           : FLUID_LIMITS.requestTimeoutMs;
+
+        stats.requests += 1;
 
         const timer = window.setTimeout(() => {
           pending.delete(request.id);

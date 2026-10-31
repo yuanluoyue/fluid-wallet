@@ -5,6 +5,7 @@ import {
   FluidErrorCode,
   getFluidBridge,
   type FluidBridge,
+  type FluidBridgeDiagnostics,
   type FluidEvent,
   type FluidRequest,
   type FluidResponse,
@@ -32,6 +33,8 @@ export interface FluidTransport {
   ): Promise<TResult>;
   onEvent(handler: (event: FluidEvent) => void): () => void;
   dispose(): void;
+  /** Only the bridge transport can report on the page-side pipe. */
+  diagnostics?(): FluidBridgeDiagnostics | undefined;
 }
 
 export function createRequestId(): string {
@@ -121,6 +124,12 @@ export class BridgeTransport implements FluidTransport {
 
   onEvent(handler: (event: FluidEvent) => void): () => void {
     return this.#bridge.onEvent(handler);
+  }
+
+  diagnostics(): FluidBridgeDiagnostics | undefined {
+    // Older wallet builds have no counters; that is not an error, just less to
+    // say about a failure.
+    return this.#bridge.diagnostics?.();
   }
 
   dispose(): void {
