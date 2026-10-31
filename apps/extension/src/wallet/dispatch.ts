@@ -48,12 +48,20 @@ let hydrated = false;
  *
  * Runs once per service worker instance; the worker is disposable, so any
  * request may be the first one after a restart.
+ *
+ * A failed read must not wedge every later request: the flag is only set once
+ * the grants are actually in memory, so a transient IndexedDB error is retried
+ * on the next message instead of being remembered forever.
  */
 async function hydrate(): Promise<void> {
   if (hydrated) return;
-  hydrated = true;
-  for (const connection of await db().connections.toArray()) {
-    permissions.restore(connection.permission);
+  try {
+    for (const connection of await db().connections.toArray()) {
+      permissions.restore(connection.permission);
+    }
+    hydrated = true;
+  } catch (error) {
+    console.warn("[fluid-wallet] could not restore stored grants", error);
   }
 }
 

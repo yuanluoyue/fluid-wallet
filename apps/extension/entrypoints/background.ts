@@ -1,4 +1,4 @@
-import { FluidError } from "@fluid-wallet/protocol";
+import { FluidError, FluidErrorCode, type FluidResponse } from "@fluid-wallet/protocol";
 import { browser } from "wxt/browser";
 import { defineBackground } from "wxt/utils/define-background";
 
@@ -11,7 +11,14 @@ import { lock } from "../src/wallet/vault";
 export default defineBackground(() => {
   // The service worker can be suspended at any time: everything that must
   // outlive a request is persisted, not held in closure scope.
-  browser.runtime.onMessage.addListener((message: unknown, sender) => {
+  //
+  // `sendResponse` + `return true` rather than returning a promise: Chrome only
+  // keeps a message channel open for the literal `true`, and while promise
+  // returns have started rolling out (Chrome 148+) they are not everywhere and
+  // never in a devtools page. A channel that closes early looks exactly like a
+  // wallet that does not answer — and these requests are long-lived by design:
+  // an inference request stays open until the last token arrives.
+  browser.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
     if (isFluidBackgroundRequest(message)) {
       const origin = resolveSenderOrigin(sender);
       if (!origin) {
@@ -20,24 +27,25 @@ export default defineBackground(() => {
           message.request.method,
         );
       }
-      return dispatch(message.request, origin, sender.tab?.id);
+      void dispatch(message.request, origin, sender.tab?.id).then(
+        (response) => sendResponse(response),
+        (error: unknown) => sendResponse(dispatchFailed(message.request.id, error)),
+      );
+      return true;
     }
 
     if (isUiMessage(message)) {
       if (!isExtensionPage(sender)) {
         // A page-side script must never reach the wallet's own controls.
-        return Promise.resolve<UiEnvelope>({ error: "This surface is wallet-internal." });
+        sendResponse({ error: "This surface is wallet-internal." } satisfies UiEnvelope);
+        return true;
       }
-      return handleUi(message)
-        .then((result): UiEnvelope => ({ result }))
-        .catch((error: unknown): UiEnvelope => ({
-          error:
-            error instanceof FluidError
-              ? error.message
-              : error instanceof Error
-                ? error.message
-                : "Unexpected wallet error.",
-        }));
+      void handleUi(message).then(
+        (result) => sendResponse({ result } satisfies UiEnvelope),
+        (error: unknown) =>
+          sendResponse({ error: describeError(error) } satisfies UiEnvelope),
+      );
+      return true;
     }
 
     return undefined;
@@ -57,3 +65,22 @@ export default defineBackground(() => {
     if (state === "locked") void lock();
   });
 });
+
+function describeError(error: unknown): string {
+  if (error instanceof FluidError) return error.message;
+  return error instanceof Error ? error.message : "Unexpected wallet error.";
+}
+
+/**
+ * `dispatch` turns its own failures into error envelopes, so this only runs
+ * when something broke outside its `try`. It exists because answering at all is
+ * the point: a closed port is indistinguishable, from inside a page, from a
+ * wallet that never loaded.
+ */
+function dispatchFailed(id: string, error: unknown): FluidResponse {
+  return {
+    jsonrpc: "2.0",
+    id,
+    error: { code: FluidErrorCode.InternalError, message: describeError(error) },
+  };
+}

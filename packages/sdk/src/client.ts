@@ -52,6 +52,12 @@ export const DEFAULT_CONNECT_CAPABILITIES = [
 /** How long `detect()` waits before concluding no wallet is listening. */
 const DETECT_TIMEOUT_MS = 2_000;
 
+/**
+ * The second budget, spent only when a bridge proved the extension is there.
+ * It covers a service worker that has to be booted from scratch; see `detect`.
+ */
+const DETECT_COLD_START_MS = 8_000;
+
 export type FluidAvailability = "unknown" | "available" | "unavailable";
 export type FluidConnectionStatus = "disconnected" | "connecting" | "connected";
 export type FluidAuthorizationStatus = "unknown" | "granted" | "denied" | "expired";
@@ -163,26 +169,44 @@ export class FluidClient {
    *
    * Uses a short deadline: with no extension installed nobody replies, so the
    * full 60s request timeout would be a terrible first-run experience.
+   *
+   * A short deadline alone is wrong, though, because an MV3 background worker
+   * is disposable: Chrome stops it after roughly 30 seconds of idleness, so the
+   * first message a page sends after a pause has to boot one from scratch —
+   * evaluate the bundle, open IndexedDB, restore grants. On a cold disk that
+   * takes seconds, and the wallet is not missing, it is starting. When a bridge
+   * exists the extension is definitely installed, so a timeout gets one more,
+   * longer attempt instead of being reported as "no wallet": a false negative
+   * here is what sends people off to reinstall a wallet that already works.
    */
   async detect(): Promise<FluidWalletInfo | null> {
-    try {
-      const info = await this.#call<FluidWalletInfo>(
-        FluidMethod.WalletGetInfo,
-        undefined,
-        { timeoutMs: DETECT_TIMEOUT_MS },
-      );
-      this.#patch({ availability: "available", wallet: info });
-      return info;
-    } catch (error) {
-      this.#patch({ availability: "unavailable", wallet: null });
-      if (
-        FluidError.is(error, FluidErrorCode.Timeout) ||
-        FluidError.is(error, FluidErrorCode.NotInstalled)
-      ) {
-        return null;
+    const budgets =
+      this.#transport.kind === "bridge"
+        ? [DETECT_TIMEOUT_MS, DETECT_COLD_START_MS]
+        : [DETECT_TIMEOUT_MS];
+
+    for (const timeoutMs of budgets) {
+      try {
+        const info = await this.#call<FluidWalletInfo>(
+          FluidMethod.WalletGetInfo,
+          undefined,
+          { timeoutMs },
+        );
+        this.#patch({ availability: "available", wallet: info });
+        return info;
+      } catch (error) {
+        if (
+          !FluidError.is(error, FluidErrorCode.Timeout) &&
+          !FluidError.is(error, FluidErrorCode.NotInstalled)
+        ) {
+          this.#patch({ availability: "unavailable", wallet: null });
+          throw toFluidError(error);
+        }
       }
-      throw toFluidError(error);
     }
+
+    this.#patch({ availability: "unavailable", wallet: null });
+    return null;
   }
 
   async connect(request?: Partial<FluidPermissionRequest>): Promise<FluidPermission> {
