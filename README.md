@@ -102,6 +102,23 @@ watch a folder, so `Load unpacked` → `apps/extension/dist/chrome-mv3-dev` is a
 one-time step, and ⟳ on the card reloads it after a rebuild. (`dist/`, not
 WXT's default `.output/`, because the picker hides dot-folders.)
 
+**The dev build only lives while `pnpm dev:extension` runs.** `wxt dev` points
+`popup.html` at `http://localhost:3000` and leaves `content_scripts` out of the
+manifest, registering them over the dev server's websocket instead. Stop the
+process and the extension goes quiet — blank toolbar panel, no `window.fluid`,
+and every page reports `No wallet found`. That is not a broken install; it is a
+build that is half a dev server.
+
+| | folder | needs the dev server |
+|---|---|---|
+| `pnpm dev:extension` | `dist/chrome-mv3-dev` | yes, keep it running |
+| `pnpm build:extension` | `dist/chrome-mv3` | no — load and forget |
+
+Use the production build for anything that is not active UI work. It is also a
+different folder, so Chrome gives it a different extension id and therefore a
+separate wallet: switching back and forth does not carry the vault or the
+grants with it.
+
 ## Deploying the website
 
 `apps/website` deploys to Cloudflare Workers through OpenNext, the same setup as

@@ -74,7 +74,12 @@ export function describeFluidError(error: unknown): FluidIssue {
         kind: "unavailable",
         action: "install",
         title: "No wallet found",
-        detail: "Install the Fluid Wallet extension, then reload this page.",
+        // "Install the extension" is only one of the two ways to get here, and
+        // it is the wrong one whenever the extension is loaded but silent — a
+        // dev build whose dev server is not running looks exactly like no
+        // extension at all from inside a page.
+        detail:
+          "Nothing answered from this page. Either the extension is not installed, or it is installed but did not inject here: a development build only works while its dev server runs, and site-access settings can block content scripts. Check chrome://extensions, then reload this page.",
       };
 
     case FluidErrorCode.Locked:
