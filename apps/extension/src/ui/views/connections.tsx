@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 
-import type { ConnectionView } from "../../../src/wallet/ui";
+import type { ConnectionView } from "../../wallet/ui";
 import { capabilityLabel, Card, ErrorText, hostOf, send, timeAgo } from "../components";
 
 export function ConnectionsView() {
   const [connections, setConnections] = useState<ConnectionView[]>([]);
+  // A second click instead of `window.confirm`: a native dialog can dismiss the
+  // toolbar panel, and then the answer never comes back to this component.
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -24,9 +27,9 @@ export function ConnectionsView() {
   };
 
   const revokeAll = async (): Promise<void> => {
-    if (!window.confirm("Revoke every connected app? They will have to ask again.")) return;
     try {
       setConnections(await send<ConnectionView[]>({ type: "ui:revokeAll" }));
+      setConfirming(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not revoke the connections.");
     }
@@ -38,9 +41,20 @@ export function ConnectionsView() {
       description="Each origin gets its own grant. Revoking closes its sessions immediately."
     >
       {connections.length > 0 ? (
-        <button className="btn btn-danger" onClick={() => void revokeAll()}>
-          Revoke all {connections.length}
-        </button>
+        confirming ? (
+          <div className="actions">
+            <button className="btn btn-danger" onClick={() => void revokeAll()}>
+              Yes, revoke all {connections.length}
+            </button>
+            <button className="btn" onClick={() => setConfirming(false)}>
+              Keep them
+            </button>
+          </div>
+        ) : (
+          <button className="btn btn-danger" onClick={() => setConfirming(true)}>
+            Revoke all {connections.length}
+          </button>
+        )
       ) : null}
       {connections.length === 0 ? (
         <p className="empty">No app has connected to this wallet yet.</p>

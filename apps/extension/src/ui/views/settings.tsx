@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
 
-import type { ExportResult, ImportResult } from "../../../src/wallet/backup";
-import type { UiState } from "../../../src/wallet/ui";
+import type { ExportResult } from "../../wallet/backup";
+import type { UiState } from "../../wallet/ui";
 import { Card, ErrorText, Field, send } from "../components";
+import { openImportWindow } from "../windows";
 
 const AUTO_LOCK_OPTIONS = [
   { value: 5 * 60_000, label: "5 minutes" },
@@ -77,19 +78,8 @@ export function SettingsView({
     }
   };
 
-  const restore = async (file: File | undefined): Promise<void> => {
-    if (!file) return;
-    setBackupError(null);
-    setBackupNotice(null);
-    try {
-      const contents = await file.text();
-      const result = await send<ImportResult>({ type: "ui:importBackup", passphrase, contents });
-      setBackupNotice(
-        `Restored: ${result.imported} new, ${result.updated} updated${result.skipped ? `, ${result.skipped} skipped` : ""}. Connected apps are not restored — re-connect them.`,
-      );
-    } catch (cause) {
-      setBackupError(cause instanceof Error ? cause.message : "Could not read the backup.");
-    }
+  const restore = (): void => {
+    openImportWindow();
   };
 
   return (
@@ -176,7 +166,7 @@ export function SettingsView({
         </Field>
         <ErrorText error={backupError} />
         {backupNotice ? <p className="badge badge-ok">{backupNotice}</p> : null}
-        <div className="row">
+        <div className="actions">
           <button
             className="btn"
             disabled={passphrase.length < 8}
@@ -184,20 +174,14 @@ export function SettingsView({
           >
             Export backup
           </button>
-          <label className="btn" style={{ cursor: "pointer" }}>
-            Import backup
-            <input
-              type="file"
-              accept="application/json,.json"
-              style={{ display: "none" }}
-              disabled={passphrase.length < 8}
-              onChange={(event) => void restore(event.target.files?.[0])}
-            />
-          </label>
+          <button className="btn" onClick={restore}>
+            Restore from a file
+          </button>
         </div>
         <p className="hint">
-          Importing merges by provider id. Existing providers with the same id are overwritten;
-          nothing is deleted.
+          Restoring merges by provider id and needs the passphrase the file was exported with, so it
+          opens in a window of its own: a file picker takes focus and the toolbar panel does not
+          survive that.
         </p>
       </Card>
     </>

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { send } from "../../src/ui-client";
+import { send } from "../ui-client";
 
 export { send };
 

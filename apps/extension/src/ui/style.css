@@ -32,6 +32,14 @@ body {
   padding: 28px 20px 64px;
 }
 
+.panel {
+  min-width: 0;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -299,4 +307,60 @@ table.logs th {
 table.logs td {
   padding: 7px 8px 7px 0;
   border-bottom: 1px solid #f1f3f5;
+}
+
+/* Toolbar popup ------------------------------------------------------------
+   Chrome sizes a popup to its content, up to 800x600. The wallet wants one
+   fixed width and one scroll area instead: the header and the tabs stay put,
+   the open tab scrolls. Same tree as the options page, only denser. */
+
+body[data-surface="popup"] {
+  width: 400px;
+}
+
+body[data-surface="popup"] .narrow {
+  max-width: none;
+  padding: 22px 16px;
+}
+
+body[data-surface="popup"] .shell {
+  max-width: none;
+  height: 580px; /* Chosen so switching tabs never resizes the panel. */
+  padding: 14px 12px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+body[data-surface="popup"] .topbar {
+  margin-bottom: 12px;
+}
+
+body[data-surface="popup"] .tabs {
+  margin-bottom: 12px;
+}
+
+body[data-surface="popup"] .tab {
+  padding: 7px 4px;
+  font-size: 12.5px;
+}
+
+body[data-surface="popup"] .panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 18px;
+}
+
+body[data-surface="popup"] .card {
+  padding: 14px;
+}
+
+body[data-surface="popup"] .item {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+body[data-surface="popup"] table.logs {
+  font-size: 11.5px;
 }

@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { browser } from "wxt/browser";
 
-import { PROVIDER_PRESETS, type ProviderInput } from "../../../src/presets";
-import type { ProviderView } from "../../../src/wallet/ui";
+import { PROVIDER_PRESETS, type ProviderInput } from "../../presets";
+import type { ProviderView } from "../../wallet/ui";
 import { Card, ErrorText, Field, send, timeAgo } from "../components";
+import { openGrantWindow } from "../windows";
 
 interface Draft {
   id?: string;
@@ -24,6 +25,9 @@ const EMPTY: Draft = {
 
 export function ProvidersView() {
   const [providers, setProviders] = useState<ProviderView[]>([]);
+  // Host permissions live in the browser, not in the wallet, so they are read
+  // back on every load: the user may have revoked one from chrome://extensions.
+  const [access, setAccess] = useState<Record<string, boolean>>({});
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -31,7 +35,9 @@ export function ProvidersView() {
 
   const load = async (): Promise<void> => {
     try {
-      setProviders(await send<ProviderView[]>({ type: "ui:providers" }));
+      const next = await send<ProviderView[]>({ type: "ui:providers" });
+      setProviders(next);
+      setAccess(await accessOf(next));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load providers.");
     }
@@ -47,16 +53,6 @@ export function ProvidersView() {
     setError(null);
     setNotice(null);
 
-    // Must run inside the click gesture, before any await, or Chrome refuses it.
-    const origin = originPattern(draft.baseUrl);
-    if (origin) {
-      const granted = await browser.permissions.request({ origins: [origin] });
-      if (!granted) {
-        setError(`The wallet needs access to ${origin} to call this provider.`);
-        return;
-      }
-    }
-
     const input: ProviderInput = {
       id: draft.id,
       name: draft.name,
@@ -71,9 +67,17 @@ export function ProvidersView() {
 
     setBusy(true);
     try {
-      setProviders(await send<ProviderView[]>({ type: "ui:saveProvider", input }));
+      // Save before asking for anything. Granting host access needs a window of
+      // its own — the prompt would otherwise take focus and destroy the popup
+      // mid-save — so the provider has to exist on its own by then.
+      const saved = await send<ProviderView[]>({ type: "ui:saveProvider", input });
+      setProviders(saved);
+      setAccess(await accessOf(saved));
       setDraft(null);
       setNotice("Provider saved.");
+
+      const origin = providerOrigin(input.baseUrl);
+      if (origin && !(await hasAccess(origin))) openGrantWindow(origin);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not save the provider.");
     } finally {
@@ -114,7 +118,10 @@ export function ProvidersView() {
               <div>
                 <div className="item-title">
                   {provider.name}{" "}
-                  {provider.isDefault ? <span className="badge badge-ok">default</span> : null}
+                  {provider.isDefault ? <span className="badge badge-ok">default</span> : null}{" "}
+                  {access[provider.id] === false ? (
+                    <span className="badge badge-warn">no access</span>
+                  ) : null}
                 </div>
                 <div className="mono">{provider.baseUrl}</div>
                 <div className="muted">
@@ -122,6 +129,17 @@ export function ProvidersView() {
                 </div>
               </div>
               <div className="actions">
+                {access[provider.id] === false ? (
+                  <button
+                    className="btn"
+                    onClick={() => {
+                      const origin = providerOrigin(provider.baseUrl);
+                      if (origin) openGrantWindow(origin);
+                    }}
+                  >
+                    Grant access
+                  </button>
+                ) : null}
                 <button className="btn" onClick={() => void test(provider.id)}>
                   Test
                 </button>
@@ -261,10 +279,29 @@ export function ProvidersView() {
   );
 }
 
-function originPattern(baseUrl: string): string | null {
+/** `https://api.deepseek.com` — the unit Chrome grants host access to. */
+function providerOrigin(baseUrl: string): string | null {
   try {
-    return `${new URL(baseUrl).origin}/*`;
+    return new URL(baseUrl).origin;
   } catch {
     return null;
   }
+}
+
+async function hasAccess(origin: string): Promise<boolean> {
+  try {
+    return await browser.permissions.contains({ origins: [`${origin}/*`] });
+  } catch {
+    return false;
+  }
+}
+
+async function accessOf(providers: ProviderView[]): Promise<Record<string, boolean>> {
+  const entries = await Promise.all(
+    providers.map(async (provider) => {
+      const origin = providerOrigin(provider.baseUrl);
+      return [provider.id, origin ? await hasAccess(origin) : false] as const;
+    }),
+  );
+  return Object.fromEntries(entries);
 }

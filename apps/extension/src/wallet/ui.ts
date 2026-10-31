@@ -64,14 +64,19 @@ export interface ActivityView {
  * Only extension pages may use this surface.
  *
  * A content script also carries our extension id, so the check cannot be the id
- * alone: UI messages must not come from a tab, and must originate from an
- * extension URL.
+ * alone: the message must originate from an extension URL. `sender.tab` cannot
+ * be the test by itself — the first-run tab and the approval window are
+ * extension pages that live in a tab — but when a tab is present its URL has to
+ * be ours too, which rejects the case that matters: a web page embedding one of
+ * these pages in an iframe and driving the wallet through it.
  */
-export function isExtensionPage(sender: { tab?: unknown; url?: string }): boolean {
-  if (sender.tab) return false;
+export function isExtensionPage(sender: { tab?: { url?: string }; url?: string }): boolean {
   const base = browser.runtime.getURL("");
-  return typeof sender.url === "string" && sender.url.startsWith(base);
+  if (typeof sender.url !== "string" || !sender.url.startsWith(base)) return false;
+  if (sender.tab?.url && !sender.tab.url.startsWith(base)) return false;
+  return true;
 }
+
 
 export async function handleUi(message: UiMessage): Promise<unknown> {
   switch (message.type) {

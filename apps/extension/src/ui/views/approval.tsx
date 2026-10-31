@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import type { PendingApproval } from "../../../src/wallet/approval";
+import type { PendingApproval } from "../../wallet/approval";
 import { capabilityLabel, hostOf, send } from "../components";
 
 /**

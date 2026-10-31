@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 
-import type { UiState } from "../../../src/wallet/ui";
+import type { UiState } from "../../wallet/ui";
 import { ErrorText, Field, send } from "../components";
 
 export function Onboarding({ onDone }: { onDone: (state: UiState) => void }) {
