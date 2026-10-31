@@ -129,8 +129,8 @@ try {
           </pre>
           <p className="note">
             <code>client.usage()</code> returns today&apos;s request budget for the origin, so a
-            chat UI can warn before the limit is hit instead of after. Against a wallet that predates
-            the method it returns <code>null</code> rather than throwing.
+            chat UI can warn before the limit is hit instead of after. Against a wallet that
+            predates the method it returns <code>null</code> rather than throwing.
           </p>
         </section>
 
@@ -171,7 +171,7 @@ const result = await handle.completed;       // final text, usage, finish reason
         <section id="react">
           <h2>5 · React</h2>
           <pre>
-            <code>{`import { FluidProvider, useFluidWallet, useFluidModels } from "@fluid-wallet/react";
+            <code>{`import { FluidProvider, useFluidWallet, useFluidModels } from "@fluid-wallet/sdk/react";
 
 export function App() {
   return (
@@ -198,7 +198,7 @@ function Chat() {
           </p>
           <pre>
             <code>{`import { useChat } from "@ai-sdk/react";
-import { FluidChatTransport } from "@fluid-wallet/ai-sdk";
+import { FluidChatTransport } from "@fluid-wallet/sdk/ai";
 import { FluidClient } from "@fluid-wallet/sdk";
 
 const client = new FluidClient({ appName: "My app" });
@@ -254,8 +254,8 @@ const chat = useChat({
               browser, never from the page payload.
             </li>
             <li>
-              <strong>Keys never reach a page.</strong> Decryption happens inside the service worker;
-              the page only ever receives text.
+              <strong>Keys never reach a page.</strong> Decryption happens inside the service
+              worker; the page only ever receives text.
             </li>
             <li>
               <strong>Grants are scoped.</strong> Capabilities, providers and models are checked per

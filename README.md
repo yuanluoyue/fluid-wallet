@@ -46,20 +46,26 @@ apps/
   website/        Next.js site: product, docs, quick start
   playground/     Protocol console: detect, connect, stream
 packages/
-  protocol/       Wire types, methods, error codes, validators   (published)
-  sdk/            Client, connectFluid, createFetch              (published)
-  ai-sdk/         Vercel AI SDK transport adapter                (published)
-  react/          Provider and hooks                             (published)
-  runtime/        Origin checks, permissions, sessions, limits   (internal)
-  storage/        Dexie/IndexedDB schema                         (internal)
-  crypto/         PBKDF2 + AES-GCM key vault                     (internal)
-  providers/      OpenAI-compatible adapter, DeepSeek preset     (internal)
-  test-kit/       In-memory mock wallet                          (internal)
+  protocol/       Wire types, methods, error codes, validators   (published, zero deps)
+  sdk/            Client, connectFluid, createFetch, errors      (published)
+    src/react/    Provider and hooks          → /react
+    src/ai/       Vercel AI SDK transport     → /ai
+    src/testing/  In-memory mock wallet       → /testing
+  core/           Wallet kernel, only the extension imports it   (private)
+    src/crypto/     PBKDF2 + AES-GCM key vault
+    src/providers/  OpenAI-compatible adapter, DeepSeek preset
+    src/runtime/    Origin checks, permissions, sessions, limits
+    src/storage/    Dexie/IndexedDB schema
 examples/
   vanilla-js/     Plain TypeScript integration, no framework
 specs/
   protocol.md · permissions.md · streaming.md · security.md
 ```
+
+Three packages, one install: apps add `@fluid-wallet/sdk`; a future wallet
+implementation needs only `@fluid-wallet/protocol`. `core` is never published —
+it assumes IndexedDB, Web Crypto and a service worker, and it encodes our
+choices rather than an interface worth promising to anyone else.
 
 ## Getting started
 
@@ -188,11 +194,11 @@ and it is a convenience, never a security boundary.
 
 ## Testing without a browser
 
-`@fluid-wallet/test-kit` ships an in-memory wallet that speaks the protocol,
+`@fluid-wallet/sdk/testing` ships an in-memory wallet that speaks the protocol,
 including `inference.proxy`:
 
 ```ts
-import { createMockWallet } from "@fluid-wallet/test-kit";
+import { createMockWallet } from "@fluid-wallet/sdk/testing";
 import { FluidClient, BridgeTransport, connectFluid } from "@fluid-wallet/sdk";
 
 const wallet = createMockWallet({ permissionMode: "auto" });

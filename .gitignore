@@ -20,6 +20,8 @@ coverage/
 playwright-report/
 test-results/
 .tmp/
+# vitest leaves empty temp handles behind when its worker pool is restarted
+_tmp_*
 
 # env & local secrets
 .env

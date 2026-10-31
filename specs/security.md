@@ -29,7 +29,8 @@ Out of scope for `0.1.0`:
 - The page never receives, requests or infers a key. There is no method that
   returns credential material, and adding one is a protocol break.
 - Decryption happens only in the trusted context (service worker or extension
-  page). `@fluid-wallet/crypto` is never imported by page code.
+  page). The key vault inside `@fluid-wallet/core` is never imported by page
+  code.
 - The derived key is non-extractable and lives in memory only. Locking drops the
   reference; unlocking re-derives from the password.
 - The unlock password is never stored — not in `chrome.storage`, not in
