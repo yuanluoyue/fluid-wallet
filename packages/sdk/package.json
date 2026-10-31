@@ -2,8 +2,16 @@
   "name": "@fluid-wallet/sdk",
   "version": "0.1.0",
   "type": "module",
-  "description": "Browser SDK for connecting web apps to a Fluid Wallet: auth, sessions, streaming inference and tools.",
-  "keywords": ["fluid-wallet", "llm", "sdk", "local-first", "browser-extension"],
+  "description": "Browser SDK for connecting web apps to a Fluid Wallet: auth, sessions, streaming inference and tools, plus React and Vercel AI SDK bindings.",
+  "keywords": [
+    "fluid-wallet",
+    "llm",
+    "sdk",
+    "local-first",
+    "browser-extension",
+    "react",
+    "ai-sdk"
+  ],
   "license": "MIT",
   "publishConfig": {
     "access": "public"
@@ -15,9 +23,23 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
+    "./ai": {
+      "types": "./dist/ai/index.d.ts",
+      "import": "./dist/ai/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
@@ -27,8 +49,22 @@
   "dependencies": {
     "@fluid-wallet/protocol": "workspace:^"
   },
+  "peerDependencies": {
+    "ai": "^7.0.0",
+    "react": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ai": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
   "devDependencies": {
-    "@fluid-wallet/test-kit": "workspace:^",
+    "@types/react": "catalog:",
+    "ai": "catalog:",
+    "react": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

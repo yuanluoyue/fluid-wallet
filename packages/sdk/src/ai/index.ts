@@ -5,7 +5,7 @@ import {
   type FluidInferenceResult,
   type FluidMessage,
 } from "@fluid-wallet/protocol";
-import type { FluidClient } from "@fluid-wallet/sdk";
+import type { FluidClient } from "../client";
 import type { ChatTransport, FinishReason, UIMessage, UIMessageChunk } from "ai";
 
 export interface FluidChatTransportOptions {

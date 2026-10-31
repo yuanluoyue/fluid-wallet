@@ -1,5 +1,5 @@
 import type { FluidModel } from "@fluid-wallet/protocol";
-import { FluidClient, type FluidClientState } from "@fluid-wallet/sdk";
+import { FluidClient, type FluidClientState } from "../client";
 import {
   createContext,
   useCallback,

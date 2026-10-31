@@ -3,9 +3,8 @@
   "compilerOptions": {
     "lib": ["ES2023", "DOM"],
     "paths": {
-      "@fluid-wallet/protocol": ["../protocol/src/index.ts"],
-      "@fluid-wallet/test-kit": ["../test-kit/src/index.ts"]
+      "@fluid-wallet/protocol": ["../protocol/src/index.ts"]
     }
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

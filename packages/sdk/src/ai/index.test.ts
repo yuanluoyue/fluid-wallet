@@ -1,5 +1,5 @@
-import { BridgeTransport, FluidClient } from "@fluid-wallet/sdk";
-import { createMockWallet } from "@fluid-wallet/test-kit";
+import { BridgeTransport, FluidClient } from "../index";
+import { createMockWallet } from "../testing";
 import type { UIMessage, UIMessageChunk } from "ai";
 import { describe, expect, it } from "vitest";
 

@@ -1,5 +1,5 @@
 import { FluidError, FluidErrorCode } from "@fluid-wallet/protocol";
-import { createMockWallet } from "@fluid-wallet/test-kit";
+import { createMockWallet } from "./testing";
 import { describe, expect, it } from "vitest";
 
 import { connectFluid, createDevFetch } from "./connect";
