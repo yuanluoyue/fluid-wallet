@@ -1,8 +1,20 @@
-import { FluidError, FluidErrorCode, type FluidPermissionRequest } from "@fluid-wallet/protocol";
+import type { FluidPermissionRequest } from "@fluid-wallet/protocol";
 import { browser } from "wxt/browser";
 
 /** How long the approval window may stay open before the request is denied. */
 const APPROVAL_TIMEOUT_MS = 120_000;
+
+/**
+ * Tells a toolbar panel that is already on screen to redraw.
+ *
+ * Deliberately not a `ui:*` message: those are commands the panel *sends*. This
+ * one travels the other way, and is answered only by the panel, which is how the
+ * worker learns whether a panel exists to draw into.
+ */
+export const APPROVAL_WAKE = "fluid:approval-available";
+
+/** How long a panel gets to answer "I am here" before it is treated as closed. */
+const PANEL_WAKE_TIMEOUT_MS = 1_000;
 
 export type ApprovalDecision = "allow" | "always" | "deny";
 
@@ -107,7 +119,7 @@ export function requestApproval(
   });
 
   byOrigin.set(origin, decision);
-  void openApprovalWindow(id);
+  void openApprovalSurface(id);
   return decision;
 }
 
@@ -145,19 +157,79 @@ async function findWindow(url: string): Promise<number | undefined> {
   return undefined;
 }
 
-async function openApprovalWindow(id: string): Promise<void> {
-  // WXT types `getURL` against the entrypoints it generated, so the leading
-  // slash and the exact file name are both required.
-  const url = browser.runtime.getURL(`/options.html?approve=${id}`);
+/**
+ * Puts the request where the user is most likely to look.
+ *
+ * The toolbar panel is the wallet's home: one click away, already the right
+ * shape for this, and closing it does not discard the request — the panel is a
+ * view over the worker's state, not the state itself. But a panel only exists
+ * while it is open and there is no cross-browser way to summon one, so every
+ * step below is best-effort and the window at the end always works.
+ */
+async function openApprovalSurface(id: string): Promise<void> {
   try {
-    await browser.windows.create({ url, type: "popup", width: 460, height: 640 });
+    if (await wakePanel()) return;
+    if (await openPanel()) return;
+    await browser.windows.create({
+      // WXT types `getURL` against the entrypoints it generated, so the leading
+      // slash and the exact file name are both required.
+      url: browser.runtime.getURL(`/options.html?approve=${id}`),
+      type: "popup",
+      width: 460,
+      height: 640,
+    });
   } catch (error) {
-    // Without a window there is no way to ask, so the request fails closed.
+    // Without a surface there is no way to ask, so the request fails closed.
     decideApproval(id, "deny");
-    throw new FluidError(
-      FluidErrorCode.Rejected,
-      "Could not open the approval window.",
-      error instanceof Error ? error.message : undefined,
-    );
+    console.warn("[fluid-wallet] could not open any approval surface", error);
+  }
+}
+
+/**
+ * Is a panel already on screen?
+ *
+ * A panel answers this message; nothing else does, which makes the answer the
+ * same as "there is somewhere to draw right now". No receiver at all surfaces
+ * as a rejected send, not as `false`.
+ *
+ * The deadline matters: a panel that is closing can swallow the message and
+ * leave the answer pending until its port dies, which would stall `connect` in
+ * the page. Reporting "no panel" a second late costs a window; hanging costs a
+ * request.
+ */
+async function wakePanel(): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const deadline = new Promise<false>((resolve) => {
+      timer = setTimeout(() => resolve(false), PANEL_WAKE_TIMEOUT_MS);
+    });
+    const answer = await Promise.race([
+      browser.runtime.sendMessage({ type: APPROVAL_WAKE }),
+      deadline,
+    ]);
+    return answer === true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Asks the browser to open the toolbar panel.
+ *
+ * `action.openPopup` is Chrome 127+ and absent elsewhere, and it rejects when
+ * the panel is already open or when no user gesture is available. All of those
+ * are "not this surface", so the caller falls through rather than guessing
+ * which one it hit.
+ */
+async function openPanel(): Promise<boolean> {
+  const action = browser.action as typeof browser.action | undefined;
+  if (typeof action?.openPopup !== "function") return false;
+  try {
+    await action.openPopup();
+    return true;
+  } catch {
+    return false;
   }
 }

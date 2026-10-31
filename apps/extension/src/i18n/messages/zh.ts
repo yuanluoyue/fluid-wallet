@@ -215,6 +215,8 @@ export const zh: Messages = {
     loading: "正在读取请求…",
     loadFailed: "读取请求失败。",
     decideFailed: "提交决定失败。",
+    moreWaiting: "还有 {count} 个站点在等待你处理。",
+    popupHint: "关闭这个面板后请求仍然保留，点工具栏图标就能回到这里。",
   },
 
   Setup: {

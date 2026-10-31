@@ -2,7 +2,7 @@ import { FluidError, type FluidCapability } from "@fluid-wallet/protocol";
 import { browser } from "wxt/browser";
 
 import type { UiMessage } from "../internal";
-import { decideApproval, listPending, type ApprovalDecision } from "./approval";
+import { decideApproval, listPending, type ApprovalDecision, type PendingApproval } from "./approval";
 import { exportBackup, importBackup } from "./backup";
 import { getDailyLimit, setDailyLimit, usageToday } from "./budget";
 import { db } from "./db";
@@ -23,6 +23,16 @@ export interface UiState {
   locked: boolean;
   autoLockMs: number;
   dailyLimit: number;
+  /**
+   * Connection requests waiting for a decision, oldest first.
+   *
+   * Carried on the state rather than fetched by whoever happens to ask, because
+   * the panel that opens *because* of a request has exactly one chance to draw
+   * it: it is opened programmatically, it has no id in its URL, and asking a
+   * second question would only add a frame of "loading" before the thing it was
+   * opened for.
+   */
+  approvals: PendingApproval[];
 }
 
 export interface ProviderView {
@@ -172,7 +182,7 @@ async function state(): Promise<UiState> {
     getAutoLock(),
     getDailyLimit(),
   ]);
-  return { configured, locked: !unlocked, autoLockMs, dailyLimit };
+  return { configured, locked: !unlocked, autoLockMs, dailyLimit, approvals: listPending() };
 }
 
 async function providers(): Promise<ProviderView[]> {

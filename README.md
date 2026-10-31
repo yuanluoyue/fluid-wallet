@@ -277,8 +277,8 @@ Known gaps, stated plainly:
   count, never the body. That is the privacy trade-off that makes drop-in SDK
   compatibility possible, and it also means the structured path is the only one
   with conversation history and per-request token accounting.
-- **Approval resilience**: if Chrome kills the service worker while the approval
-  window is open, the pending `wallet.connect` fails; the page must retry.
+- **Approval resilience**: if Chrome kills the service worker while an approval
+  is pending, the pending `wallet.connect` fails; the page must retry.
 - **Provider breadth**: DeepSeek plus any OpenAI-compatible endpoint. Adding one
   is a form, and the wallet can test it and pull its `/models` catalogue, but
   there is no OAuth or subscription-token flow. Deliberate: every advertised

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
+import { browser } from "wxt/browser";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n/react";
+import { APPROVAL_WAKE } from "../wallet/approval";
 import type { UiState } from "../wallet/ui";
 import { send } from "./components";
 import { LanguageSelect } from "./language";
@@ -53,17 +55,42 @@ export function App({ surface }: { surface: Surface }) {
   const [tab, setTab] = useState<TabId>(requestedTab);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<UiState | null> => {
     try {
-      setState(await send<UiState>({ type: "ui:state" }));
+      const next = await send<UiState>({ type: "ui:state" });
+      setState(next);
+      return next;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("App.loadFailed"));
+      return null;
     }
   }, [t]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (surface !== "popup") return;
+
+    // A connection request can arrive while the panel is already on screen, and
+    // then nothing needs opening — only redrawing. Answering this message is
+    // also how the worker learns a panel exists: no panel, no answer.
+    const onMessage = (
+      message: unknown,
+      _sender: unknown,
+      respond: (value: unknown) => void,
+    ): undefined => {
+      if (typeof message !== "object" || message === null) return undefined;
+      if ((message as { type?: unknown }).type !== APPROVAL_WAKE) return undefined;
+      respond(true);
+      void refresh();
+      return undefined;
+    };
+
+    browser.runtime.onMessage.addListener(onMessage);
+    return () => browser.runtime.onMessage.removeListener(onMessage);
+  }, [surface, refresh]);
 
   // A window the popup opened for something it cannot host: the permission
   // prompt, or a file picker. Each renders on its own, without the wallet shell.
@@ -89,6 +116,33 @@ export function App({ surface }: { surface: Surface }) {
 
   if (state.locked) {
     return <Unlock onUnlocked={setState} />;
+  }
+
+  // A panel opened *because* of a request carries no id in its URL — it is the
+  // same popup as always. The request arrives with the state, and it outranks
+  // the tabs: the page that asked is blocked until someone answers.
+  const waiting = state.approvals[0];
+  if (surface === "popup" && waiting) {
+    return (
+      <main className="h-[580px] overflow-y-auto">
+        <ApprovalView
+          // A decision can leave a second site's request behind. Keying on the
+          // id remounts the view instead of showing the answered one again.
+          key={waiting.id}
+          requestId={waiting.id}
+          surface="popup"
+          queue={state.approvals.length}
+          initial={waiting}
+          onDecided={async () => {
+            const next = await refresh();
+            // Another site may have asked while this one was on screen. Staying
+            // put beats closing the panel and making the user reopen it to find
+            // a request they never saw.
+            if (!next?.approvals.length) window.close();
+          }}
+        />
+      </main>
+    );
   }
 
   return (

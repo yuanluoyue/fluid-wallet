@@ -223,6 +223,9 @@ export const en = {
     loading: "Loading request…",
     loadFailed: "Could not read the request.",
     decideFailed: "Could not send the decision.",
+    moreWaiting: "{count} more site(s) are waiting for an answer.",
+    popupHint:
+      "Closing this panel keeps the request waiting — click the toolbar icon to come back to it.",
   },
 
   Setup: {

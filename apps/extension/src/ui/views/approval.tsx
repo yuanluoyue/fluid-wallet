@@ -8,29 +8,58 @@ import type { PendingApproval } from "../../wallet/approval";
 import { Screen, hostOf, send, useFormatters } from "../components";
 
 /**
- * Shown in the popup window opened by `wallet.connect`.
+ * Shown in the toolbar panel, or in the fallback window opened by
+ * `wallet.connect`.
  *
  * The decision is applied in the service worker, not here: this page only
- * reports the user's choice and closes.
+ * reports the user's choice and goes away. `onDecided` exists because the two
+ * surfaces leave differently — a window closes unconditionally, while a panel
+ * may still have a second site's request to show.
  */
-export function ApprovalView({ requestId }: { requestId: string }) {
+export function ApprovalView({
+  requestId,
+  surface = "page",
+  queue = 1,
+  initial,
+  onDecided,
+}: {
+  requestId: string;
+  surface?: "popup" | "page";
+  /** Requests waiting in total, this one included. */
+  queue?: number;
+  /**
+   * The request, when the caller already has it.
+   *
+   * A panel is opened *for* a request, so it arrives with the state that opened
+   * it; asking again would only add a spinner in front of the thing the panel
+   * exists to show.
+   */
+  initial?: PendingApproval;
+  onDecided?: () => void | Promise<void>;
+}) {
   const { t } = useI18n();
   const { capability } = useFormatters();
-  const [request, setRequest] = useState<PendingApproval | null | undefined>(undefined);
+  const [request, setRequest] = useState<PendingApproval | null | undefined>(initial);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (initial) return;
     void send<PendingApproval[]>({ type: "ui:approvals" })
       .then((pending) => setRequest(pending.find((entry) => entry.id === requestId) ?? null))
       .catch((cause: unknown) =>
         setError(cause instanceof Error ? cause.message : t("Approval.loadFailed")),
       );
-  }, [requestId]);
+  }, [requestId, initial]);
+
+  const leave = async (): Promise<void> => {
+    if (onDecided) await onDecided();
+    else window.close();
+  };
 
   const decide = async (decision: "allow" | "always" | "deny"): Promise<void> => {
     try {
       await send({ type: "ui:decide", id: requestId, decision });
-      window.close();
+      await leave();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("Approval.decideFailed"));
     }
@@ -49,7 +78,7 @@ export function ApprovalView({ requestId }: { requestId: string }) {
       <Screen>
         <h1 className="text-xl font-semibold tracking-tight">{t("Approval.expiredTitle")}</h1>
         <p className="text-[12.5px] text-muted-foreground">{t("Approval.expiredBody")}</p>
-        <Button variant="outline" className="self-start" onClick={() => window.close()}>
+        <Button variant="outline" className="self-start" onClick={() => void leave()}>
           {t("Common.close")}
         </Button>
       </Screen>
@@ -136,6 +165,18 @@ export function ApprovalView({ requestId }: { requestId: string }) {
           {t("Approval.deny")}
         </Button>
       </div>
+
+      {queue > 1 ? (
+        <p className="text-[11.5px] text-muted-foreground">
+          {t("Approval.moreWaiting", { count: queue - 1 })}
+        </p>
+      ) : null}
+
+      {surface === "popup" ? (
+        <p className="text-[11.5px] leading-snug text-muted-foreground">
+          {t("Approval.popupHint")}
+        </p>
+      ) : null}
     </Screen>
   );
 }
