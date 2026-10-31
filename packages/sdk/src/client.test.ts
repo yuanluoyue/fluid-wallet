@@ -38,6 +38,19 @@ describe("FluidClient", () => {
     expect(client.state.availability).toBe("unavailable");
   });
 
+  it("blames the caller, not the wallet, when the client was disposed", async () => {
+    // A client thrown away by a re-mounted React effect answers nothing, and
+    // used to report `NotInstalled`: the page went looking for a missing
+    // extension while the extension was answering other tabs fine.
+    const { client } = setup();
+    client.dispose();
+
+    await expect(client.detect()).rejects.toMatchObject({
+      code: FluidErrorCode.InternalError,
+    });
+    expect(client.disposed).toBe(true);
+  });
+
   it("connects and tracks authorization separately from connection", async () => {
     const { client } = setup();
     const permission = await client.connect();

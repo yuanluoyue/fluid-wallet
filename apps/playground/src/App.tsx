@@ -83,7 +83,16 @@ export function App() {
   const [diagnosis, setDiagnosis] = useState<string[] | null>(null);
   const [probing, setProbing] = useState(false);
 
-  useEffect(() => () => client.dispose(), [client]);
+  // Tearing the client down in this effect's cleanup is a trap: React mounts
+  // effects twice in development, so the cleanup runs on a client that is used
+  // again immediately afterwards. A disposed client answers nothing at all, and
+  // the page then reports "the wallet is not answering" while the wallet is
+  // perfectly healthy. Release it with the page instead.
+  useEffect(() => {
+    const release = (): void => client.dispose();
+    window.addEventListener("pagehide", release);
+    return () => window.removeEventListener("pagehide", release);
+  }, [client]);
 
   // The chips read `client.state`, which the client mutates without React
   // knowing. Subscribing is what makes "Detect wallet" actually update the page

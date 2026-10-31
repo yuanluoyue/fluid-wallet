@@ -30,10 +30,16 @@ export function FluidProvider({ client, appId, appName, children }: FluidProvide
 
   const value = client ?? owned.current;
 
+  // The client outlives this effect on purpose. React runs mount effects twice
+  // in development, so disposing in the cleanup kills a client that is about to
+  // be used again — and every later call then fails with "disposed", which
+  // looks from the UI exactly like a wallet that stopped answering. Release it
+  // when the page goes away instead: that is the lifetime the transport has.
   useEffect(() => {
-    return () => {
-      if (!client) owned.current?.dispose();
-    };
+    if (client) return;
+    const release = (): void => owned.current?.dispose();
+    window.addEventListener("pagehide", release);
+    return () => window.removeEventListener("pagehide", release);
   }, [client]);
 
   if (!value) throw new Error("FluidProvider failed to create a client.");

@@ -152,6 +152,11 @@ export class FluidClient {
     return this.#state;
   }
 
+  /** True once `dispose()` ran. A disposed client cannot be revived. */
+  get disposed(): boolean {
+    return this.#disposed;
+  }
+
   get transportKind(): FluidTransport["kind"] {
     return this.#transport.kind;
   }
@@ -445,7 +450,14 @@ export class FluidClient {
     options: FluidRequestOptions = {},
   ): Promise<TResult> {
     if (this.#disposed) {
-      throw new FluidError(FluidErrorCode.NotInstalled, "The Fluid client was disposed.");
+      // A used-after-dispose call is a bug in the caller, not a missing wallet.
+      // Reporting it as `NotInstalled` sent one page hunting for a browser
+      // extension while its actual problem was a client thrown away by a
+      // re-mounted effect.
+      throw new FluidError(
+        FluidErrorCode.InternalError,
+        "This Fluid client has been disposed; create a new one instead of reusing it.",
+      );
     }
 
     try {
