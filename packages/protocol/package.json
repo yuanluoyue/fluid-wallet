@@ -3,8 +3,23 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Wire types, method definitions, error codes and validators for the Fluid Protocol.",
-  "keywords": ["fluid-wallet", "protocol", "llm", "browser-extension"],
+  "keywords": [
+    "fluid-wallet",
+    "protocol",
+    "llm",
+    "browser-extension"
+  ],
   "license": "MIT",
+  "author": "yuanluoyue",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yuanluoyue/fluid-wallet.git",
+    "directory": "packages/protocol"
+  },
+  "homepage": "https://github.com/yuanluoyue/fluid-wallet/tree/main/packages/protocol#readme",
+  "bugs": {
+    "url": "https://github.com/yuanluoyue/fluid-wallet/issues"
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -17,7 +32,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",

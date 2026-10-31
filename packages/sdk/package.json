@@ -13,6 +13,16 @@
     "ai-sdk"
   ],
   "license": "MIT",
+  "author": "yuanluoyue",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yuanluoyue/fluid-wallet.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/yuanluoyue/fluid-wallet/tree/main/packages/sdk#readme",
+  "bugs": {
+    "url": "https://github.com/yuanluoyue/fluid-wallet/issues"
+  },
   "publishConfig": {
     "access": "public"
   },

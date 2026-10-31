@@ -68,6 +68,13 @@ export default tseslint.config(
       ),
     },
   },
+  // The extension's dev launcher is a CLI: printing the folder to load is its
+  // entire output, so the warning that exists to keep `console.log` out of
+  // shipped code does not apply to it.
+  {
+    files: ["apps/extension/scripts/**/*.mjs"],
+    rules: { "no-console": "off" },
+  },
   // Inside core the four directories are layers, not peers:
   //   crypto  → nothing (Web Crypto only)
   //   storage → crypto

@@ -5,6 +5,23 @@
   "type": "module",
   "description": "Open, local-first LLM wallet and access protocol for web AI applications.",
   "license": "MIT",
+  "author": "yuanluoyue",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yuanluoyue/fluid-wallet.git"
+  },
+  "homepage": "https://github.com/yuanluoyue/fluid-wallet#readme",
+  "bugs": {
+    "url": "https://github.com/yuanluoyue/fluid-wallet/issues"
+  },
+  "keywords": [
+    "llm",
+    "api-key",
+    "browser-extension",
+    "local-first",
+    "wallet",
+    "protocol"
+  ],
   "packageManager": "pnpm@11.6.0",
   "engines": {
     "node": ">=22"

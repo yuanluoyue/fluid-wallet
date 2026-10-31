@@ -1,6 +1,9 @@
-# Fluid Wallet
+# 流钥 · Fluid Wallet
 
 **Open, local-first LLM wallet and access protocol for web AI applications.**
+<sub>开源的、本地优先的 LLM 钱包与访问协议：网站用得上你的 key，却永远拿不到它。</sub>
+
+「流」是 token 一个接一个流出去，「钥」是开门的钥匙 —— 钥匙不进网站，只有答案流出来。
 
 Users already have a DeepSeek (or any OpenAI-compatible) API key. Every pure
 front-end AI app asks them to paste it in again, keep it in `localStorage`, and
@@ -11,11 +14,12 @@ for inference without ever touching them.
 > Status: **MVP-03**. The wallet works end to end: encrypted vault, provider
 > management with connection tests and a fetched model catalogue, connect
 > approval, scoped permissions, streamed inference, cancellation, an activity
-> log, and a raw proxy path so apps can keep using their provider's own SDK. A
-> connect request against a wallet with no provider is refused with a window
-> that leads straight to the provider form. The panel itself is bilingual
-> (English / 中文, switchable in the header). Store packaging and tool-call
-> round trips are next.
+> log, and a raw proxy path so apps can keep using their provider's own SDK.
+> Approval is asked in the toolbar panel itself; a window is only the fallback
+> for browsers without `action.openPopup`. A connect request against a wallet
+> with no provider is refused with a window that leads straight to the provider
+> form. The panel is bilingual (English / 中文, switchable in the header). Store
+> packaging and tool-call round trips are next.
 
 ## Principles
 
@@ -113,10 +117,10 @@ surviving as a trap, `pnpm dev:extension` deletes `dist/chrome-mv3-dev` when it
 exits; if Chrome is still pointed at it, reload the card against
 `dist/chrome-mv3`.
 
-| | folder | standalone |
-|---|---|---|
-| `pnpm build:extension` | `dist/chrome-mv3` | yes — load and forget |
-| `pnpm dev:extension` | `dist/chrome-mv3-dev` | no, and deleted on exit |
+|                        | folder                | standalone              |
+| ---------------------- | --------------------- | ----------------------- |
+| `pnpm build:extension` | `dist/chrome-mv3`     | yes — load and forget   |
+| `pnpm dev:extension`   | `dist/chrome-mv3-dev` | no, and deleted on exit |
 
 The two folders are different extensions to Chrome, with different ids and
 therefore separate wallets: switching between them does not carry the vault or
@@ -181,7 +185,7 @@ const fluid = await connectFluid({
 // Any provider package that accepts a `fetch` option works: @ai-sdk/deepseek,
 // @ai-sdk/openai, or the official `openai` client.
 const deepseek = createOpenAI({
-  apiKey: "fluid",                                  // placeholder: the wallet injects the real key
+  apiKey: "fluid", // placeholder: the wallet injects the real key
   baseURL: "https://api.deepseek.com/v1",
   fetch: fluid.createFetch(),
 });
@@ -189,7 +193,7 @@ const deepseek = createOpenAI({
 const result = streamText({ model: deepseek("deepseek-chat"), messages, tools });
 ```
 
-The app only supplies a *path*. The scheme, host and key come from the provider
+The app only supplies a _path_. The scheme, host and key come from the provider
 the user configured, so a compromised page cannot point the wallet anywhere else.
 This path needs the `inference:proxy` capability, which `connectFluid` requests
 and the approval window spells out.
@@ -217,7 +221,8 @@ const inference = client.createInference({
 });
 
 for await (const event of inference.events) {
-  if (event.type === "inference.delta") process.stdout.write((event.payload as { text: string }).text);
+  if (event.type === "inference.delta")
+    process.stdout.write((event.payload as { text: string }).text);
 }
 ```
 
@@ -264,19 +269,25 @@ This is also the conformance target for third-party wallet implementations.
 
 | Milestone | Scope                                                                 | State |
 | --------- | --------------------------------------------------------------------- | ----- |
-| MVP-01    | Monorepo, protocol, SDK, mock wallet, conformance tests                | done  |
-| MVP-02    | Encrypted vault, provider config, approval dialog, streamed inference  | done  |
-| MVP-03    | Conversations, activity log, AI SDK adapter, React hooks               | done  |
-| MVP-04    | Tool-call round trips, Firefox packaging, store release, docs site      | next  |
+| MVP-01    | Monorepo, protocol, SDK, mock wallet, conformance tests               | done  |
+| MVP-02    | Encrypted vault, provider config, approval dialog, streamed inference | done  |
+| MVP-03    | Conversations, activity log, AI SDK adapter, React hooks              | done  |
+| MVP-04    | Tool-call round trips, Firefox packaging, store release, docs site    | next  |
 
 Known gaps, stated plainly:
 
 - **Tool calls** are streamed to the app and persisted, but the wallet does not
   yet wait for a tool result and continue the turn — the app drives that loop.
-- **Raw proxy requests are opaque.** The wallet sees a path, a status and a byte
-  count, never the body. That is the privacy trade-off that makes drop-in SDK
-  compatibility possible, and it also means the structured path is the only one
-  with conversation history and per-request token accounting.
+- **Token counts exist only on the structured path.** `inference.create` parses
+  the provider's SSE stream, so every call logs prompt and completion tokens and
+  the activity log can show what it cost. `inference.proxy` relays bytes without
+  reading them — the wallet sees a path, a status and a byte count, never the
+  body — which is what makes drop-in SDK compatibility possible, and also why a
+  call on that path records no tokens at all (the log shows `—`). The playground
+  uses the proxy path on purpose, so token counts there stay empty.
+- **Raw proxy requests are opaque.** The privacy trade-off above cuts both ways:
+  the wallet cannot enforce a per-app spending cap on requests it does not read,
+  and cannot tell a chat completion from an embeddings call beyond its path.
 - **Approval resilience**: if Chrome kills the service worker while an approval
   is pending, the pending `wallet.connect` fails; the page must retry.
 - **Provider breadth**: DeepSeek plus any OpenAI-compatible endpoint. Adding one
@@ -300,6 +311,12 @@ version: no method returns credential material, origins come from the browser
 sender, decryption happens only in the trusted context, and logs never contain
 prompts, responses or keys.
 
+## Contributing
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md) is short, and the part worth knowing up
+front is that a protocol change starts in `specs/` rather than in code. Security
+issues go through a private advisory, not a public issue.
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
