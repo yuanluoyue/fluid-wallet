@@ -19,6 +19,14 @@ export default defineConfig({
     host_permissions: ["https://api.deepseek.com/*"],
     optional_host_permissions: ["https://*/*"],
   },
+  // `wxt dev` only opens a browser when `web-ext` is installed. It creates a
+  // throwaway profile by default, which would mean setting the master password
+  // and re-adding the provider key on every restart — the wallet would never
+  // look like the one a real user has. Keeping the profile under `.wxt/`
+  // (already gitignored) makes dev and manual testing agree.
+  webExt: {
+    chromiumArgs: ["--user-data-dir=./.wxt/chrome-data"],
+  },
   vite: () => ({
     resolve: {
       alias: {
