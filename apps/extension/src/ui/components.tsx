@@ -1,5 +1,8 @@
+import { useMemo } from "react";
 import type { ReactNode } from "react";
 
+import type { MessageKey } from "../i18n";
+import { useI18n } from "../i18n/react";
 import { send } from "../ui-client";
 
 export { send };
@@ -45,33 +48,51 @@ export function hostOf(origin: string): string {
   }
 }
 
-export function timeAgo(timestamp: number): string {
-  const seconds = Math.round((Date.now() - timestamp) / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return new Date(timestamp).toLocaleDateString();
-}
+/**
+ * Formatting that needs the current language.
+ *
+ * A hook rather than plain functions because both halves of it — the relative
+ * time and the permission names that arrive as wire values — are translated,
+ * and threading `t` through every prop call site would be worse than calling
+ * this once per view.
+ */
+export function useFormatters() {
+  const { t, locale } = useI18n();
 
-export function formatDuration(ms: number | undefined): string {
-  if (ms === undefined) return "—";
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
-}
+  return useMemo(() => {
+    const date = (timestamp: number): string =>
+      new Date(timestamp).toLocaleDateString(locale === "zh" ? "zh-CN" : "en");
 
-const CAPABILITY_LABELS: Record<string, string> = {
-  "wallet:read": "Read wallet status",
-  "models:list": "See available models",
-  "inference:text": "Send prompts to your models",
-  "inference:stream": "Stream responses",
-  "inference:tools": "Call tools it defines",
-  "inference:proxy": "Use the provider's own API directly",
-  "conversation:read": "Read its own conversation history",
-  "conversation:write": "Save conversation history",
-  "activity:read": "Read its own usage log",
-};
+    return {
+      timeAgo(timestamp: number): string {
+        const seconds = Math.round((Date.now() - timestamp) / 1000);
+        if (seconds < 45) return t("Time.justNow");
+        const minutes = Math.round(seconds / 60);
+        if (minutes < 60) return t("Time.minutesAgo", { count: minutes });
+        const hours = Math.round(minutes / 60);
+        if (hours < 24) return t("Time.hoursAgo", { count: hours });
+        return date(timestamp);
+      },
 
-export function capabilityLabel(capability: string): string {
-  return CAPABILITY_LABELS[capability] ?? capability;
+      dateTime(timestamp: number): string {
+        return new Date(timestamp).toLocaleString(locale === "zh" ? "zh-CN" : "en");
+      },
+
+      duration(ms: number | undefined): string {
+        if (ms === undefined) return "—";
+        return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+      },
+
+      /**
+       * Capability names come from the wire, so the key is not statically
+       * known. An unknown one shows the raw scope — the wallet should never
+       * hide a permission it does not have a label for.
+       */
+      capability(capability: string): string {
+        const key = `Capabilities.${capability}`;
+        const label = t(key as MessageKey);
+        return label === key ? capability : label;
+      },
+    };
+  }, [t, locale]);
 }

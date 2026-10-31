@@ -364,3 +364,55 @@ body[data-surface="popup"] .item {
 body[data-surface="popup"] table.logs {
   font-size: 11.5px;
 }
+
+/* Language picker --------------------------------------------------------- */
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Pre-wallet screens (onboarding, unlock) have no header to hang the picker
+   on, so it sits alone in the corner — the language has to be changeable
+   before the wallet exists. */
+.topbar-minimal {
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.lang {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.lang:focus-visible {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.lang-compact {
+  padding: 5px 6px;
+  font-size: 12px;
+}
+
+/* Chips double as buttons in the provider form, where a click toggles a model
+   in or out of the list. A span ignores the button reset; a button needs it. */
+.chip {
+  border: 0;
+  font: inherit;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.chip-on {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}

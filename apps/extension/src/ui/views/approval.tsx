@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
+import { useI18n } from "../../i18n/react";
 import type { PendingApproval } from "../../wallet/approval";
-import { capabilityLabel, hostOf, send } from "../components";
+import { hostOf, send, useFormatters } from "../components";
 
 /**
  * Shown in the popup window opened by `wallet.connect`.
@@ -10,6 +11,8 @@ import { capabilityLabel, hostOf, send } from "../components";
  * reports the user's choice and closes.
  */
 export function ApprovalView({ requestId }: { requestId: string }) {
+  const { t } = useI18n();
+  const { capability } = useFormatters();
   const [request, setRequest] = useState<PendingApproval | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,7 +20,7 @@ export function ApprovalView({ requestId }: { requestId: string }) {
     void send<PendingApproval[]>({ type: "ui:approvals" })
       .then((pending) => setRequest(pending.find((entry) => entry.id === requestId) ?? null))
       .catch((cause: unknown) =>
-        setError(cause instanceof Error ? cause.message : "Could not read the request."),
+        setError(cause instanceof Error ? cause.message : t("Approval.loadFailed")),
       );
   }, [requestId]);
 
@@ -26,14 +29,14 @@ export function ApprovalView({ requestId }: { requestId: string }) {
       await send({ type: "ui:decide", id: requestId, decision });
       window.close();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not send the decision.");
+      setError(cause instanceof Error ? cause.message : t("Approval.decideFailed"));
     }
   };
 
   if (request === undefined) {
     return (
       <div className="narrow">
-        <p className="muted">Loading request…</p>
+        <p className="muted">{t("Approval.loading")}</p>
       </div>
     );
   }
@@ -41,12 +44,10 @@ export function ApprovalView({ requestId }: { requestId: string }) {
   if (request === null) {
     return (
       <div className="narrow">
-        <h1 className="hero-title">Request expired</h1>
-        <p className="muted">
-          The connection request is no longer pending. Ask the app to connect again.
-        </p>
+        <h1 className="hero-title">{t("Approval.expiredTitle")}</h1>
+        <p className="muted">{t("Approval.expiredBody")}</p>
         <button className="btn" style={{ marginTop: 16 }} onClick={() => window.close()}>
-          Close
+          {t("Common.close")}
         </button>
       </div>
     );
@@ -54,59 +55,52 @@ export function ApprovalView({ requestId }: { requestId: string }) {
 
   return (
     <div className="narrow">
-      <p className="badge">Connection request</p>
+      <p className="badge">{t("Approval.badge")}</p>
       <h1 className="hero-title" style={{ marginTop: 10 }}>
         {request.request.appName ?? hostOf(request.origin)}
       </h1>
       <p className="mono">{request.origin}</p>
       {request.context.firstConnection ? (
-        <p className="badge badge-warn">First time this site connects</p>
+        <p className="badge badge-warn">{t("Approval.firstTime")}</p>
       ) : (
-        <p className="badge badge-ok">Already connected · asking for wider access</p>
+        <p className="badge badge-ok">{t("Approval.again")}</p>
       )}
       {request.context.nameMismatch ? (
-        <p className="badge badge-danger">
-          This page names a domain it does not own — check the address bar before approving
-        </p>
+        <p className="badge badge-danger">{t("Approval.nameMismatch")}</p>
       ) : null}
       {request.request.reason ? <p className="muted">{request.request.reason}</p> : null}
 
       <section className="card" style={{ marginTop: 18 }}>
-        <h2>It is asking for</h2>
+        <h2>{t("Approval.askingFor")}</h2>
         <div className="chips">
-          {request.request.capabilities.map((capability) => (
-            <span key={capability} className="chip">
-              {capabilityLabel(capability)}
+          {request.request.capabilities.map((scope) => (
+            <span key={scope} className="chip">
+              {capability(scope)}
             </span>
           ))}
         </div>
         <p className="hint" style={{ marginTop: 12 }}>
-          It never receives your API key — only answers. You can revoke this at any time.
+          {t("Approval.neverSeesKey")}
         </p>
       </section>
 
       {request.context.providerNames.length ? (
         <section className="card">
-          <h2>It will use</h2>
+          <h2>{t("Approval.willUse")}</h2>
           <p className="muted">
             {request.context.providerNames.join(", ")}
-            {request.context.defaultModel ? ` · default model ${request.context.defaultModel}` : ""}
+            {request.context.defaultModel
+              ? ` · ${t("Approval.defaultModel", { model: request.context.defaultModel })}`
+              : ""}
           </p>
-          <p className="hint">
-            Requests are billed to your own account with that provider, and counted against the
-            per-site daily budget in Settings.
-          </p>
+          <p className="hint">{t("Approval.billed")}</p>
         </section>
       ) : null}
 
       {request.request.capabilities.includes("inference:proxy") ? (
         <section className="card">
-          <h2>Direct API access</h2>
-          <p className="muted">
-            This site can call your provider&apos;s chat, embedding and model-list endpoints itself,
-            with its own prompt format. Other endpoints — account, balance, files — stay blocked by
-            the wallet.
-          </p>
+          <h2>{t("Approval.directAccess")}</h2>
+          <p className="muted">{t("Approval.directAccessBody")}</p>
         </section>
       ) : null}
 
@@ -114,13 +108,13 @@ export function ApprovalView({ requestId }: { requestId: string }) {
 
       <div className="stack" style={{ marginTop: 16 }}>
         <button className="btn btn-primary" onClick={() => void decide("allow")}>
-          Allow for 7 days
+          {t("Approval.allow7")}
         </button>
         <button className="btn" onClick={() => void decide("always")}>
-          Always allow
+          {t("Approval.allowAlways")}
         </button>
         <button className="btn btn-danger" onClick={() => void decide("deny")}>
-          Deny
+          {t("Approval.deny")}
         </button>
       </div>
     </div>

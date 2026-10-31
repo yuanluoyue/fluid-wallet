@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { useI18n } from "../i18n/react";
 import type { UiState } from "../wallet/ui";
 import { send } from "./components";
+import { LanguageSelect } from "./language";
 import { ActivityView } from "./views/activity";
 import { ApprovalView } from "./views/approval";
 import { ConnectionsView } from "./views/connections";
@@ -12,10 +14,10 @@ import { SettingsView } from "./views/settings";
 import { Onboarding, Unlock } from "./views/unlock";
 
 const TABS = [
-  { id: "providers", label: "Providers" },
-  { id: "connections", label: "Connections" },
-  { id: "activity", label: "Activity" },
-  { id: "settings", label: "Settings" },
+  { id: "providers", label: "App.tabs.providers" },
+  { id: "connections", label: "App.tabs.connections" },
+  { id: "activity", label: "App.tabs.activity" },
+  { id: "settings", label: "App.tabs.settings" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -29,6 +31,7 @@ type TabId = (typeof TABS)[number]["id"];
  * responds to the surface, through `body[data-surface="popup"]` in style.css.
  */
 export function App() {
+  const { t } = useI18n();
   const [state, setState] = useState<UiState | null>(null);
   const [tab, setTab] = useState<TabId>("providers");
   const [error, setError] = useState<string | null>(null);
@@ -41,9 +44,9 @@ export function App() {
     try {
       setState(await send<UiState>({ type: "ui:state" }));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not read the wallet state.");
+      setError(cause instanceof Error ? cause.message : t("App.loadFailed"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void refresh();
@@ -59,7 +62,7 @@ export function App() {
   if (!state) {
     return (
       <div className="narrow">
-        <p className="muted">{error ?? "Loading wallet…"}</p>
+        <p className="muted">{error ?? t("App.loading")}</p>
       </div>
     );
   }
@@ -79,12 +82,15 @@ export function App() {
           <span className="dot" aria-hidden />
           Fluid Wallet
         </div>
-        <button
-          className="btn"
-          onClick={() => void send<UiState>({ type: "ui:lock" }).then(setState)}
-        >
-          Lock
-        </button>
+        <div className="topbar-actions">
+          <LanguageSelect compact />
+          <button
+            className="btn"
+            onClick={() => void send<UiState>({ type: "ui:lock" }).then(setState)}
+          >
+            {t("App.lock")}
+          </button>
+        </div>
       </header>
 
       <nav className="tabs" role="tablist">
@@ -96,7 +102,7 @@ export function App() {
             aria-selected={tab === item.id}
             onClick={() => setTab(item.id)}
           >
-            {item.label}
+            {t(item.label)}
           </button>
         ))}
       </nav>

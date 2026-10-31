@@ -23,7 +23,13 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["packages/*/src/**/*.test.ts", "packages/*/test/**/*.test.ts"],
+    // The extension is covered where it can be tested without a browser: the
+    // message tables and the formatter are pure, everything else needs `wxt`.
+    include: [
+      "packages/*/src/**/*.test.ts",
+      "packages/*/test/**/*.test.ts",
+      "apps/extension/src/i18n/**/*.test.ts",
+    ],
     testTimeout: 10_000,
   },
 });

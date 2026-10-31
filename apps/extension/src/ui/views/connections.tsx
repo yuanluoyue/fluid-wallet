@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 
+import { useI18n } from "../../i18n/react";
 import type { ConnectionView } from "../../wallet/ui";
-import { capabilityLabel, Card, ErrorText, hostOf, send, timeAgo } from "../components";
+import { Card, ErrorText, hostOf, send, useFormatters } from "../components";
 
 export function ConnectionsView() {
+  const { t } = useI18n();
+  const { timeAgo, dateTime, capability } = useFormatters();
   const [connections, setConnections] = useState<ConnectionView[]>([]);
   // A second click instead of `window.confirm`: a native dialog can dismiss the
   // toolbar panel, and then the answer never comes back to this component.
@@ -14,7 +17,7 @@ export function ConnectionsView() {
     void send<ConnectionView[]>({ type: "ui:connections" })
       .then(setConnections)
       .catch((cause: unknown) =>
-        setError(cause instanceof Error ? cause.message : "Could not load connections."),
+        setError(cause instanceof Error ? cause.message : t("Connections.loadFailed")),
       );
   }, []);
 
@@ -22,7 +25,7 @@ export function ConnectionsView() {
     try {
       setConnections(await send<ConnectionView[]>({ type: "ui:revoke", origin }));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not revoke the connection.");
+      setError(cause instanceof Error ? cause.message : t("Connections.revokeFailed"));
     }
   };
 
@@ -31,33 +34,30 @@ export function ConnectionsView() {
       setConnections(await send<ConnectionView[]>({ type: "ui:revokeAll" }));
       setConfirming(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not revoke the connections.");
+      setError(cause instanceof Error ? cause.message : t("Connections.revokeAllFailed"));
     }
   };
 
   return (
-    <Card
-      title="Connected apps"
-      description="Each origin gets its own grant. Revoking closes its sessions immediately."
-    >
+    <Card title={t("Connections.title")} description={t("Connections.description")}>
       {connections.length > 0 ? (
         confirming ? (
           <div className="actions">
             <button className="btn btn-danger" onClick={() => void revokeAll()}>
-              Yes, revoke all {connections.length}
+              {t("Connections.revokeAllConfirm", { count: connections.length })}
             </button>
             <button className="btn" onClick={() => setConfirming(false)}>
-              Keep them
+              {t("Connections.keep")}
             </button>
           </div>
         ) : (
           <button className="btn btn-danger" onClick={() => setConfirming(true)}>
-            Revoke all {connections.length}
+            {t("Connections.revokeAll", { count: connections.length })}
           </button>
         )
       ) : null}
       {connections.length === 0 ? (
-        <p className="empty">No app has connected to this wallet yet.</p>
+        <p className="empty">{t("Connections.empty")}</p>
       ) : (
         connections.map((connection) => (
           <div className="item" key={connection.origin}>
@@ -65,25 +65,32 @@ export function ConnectionsView() {
               <div className="item-title">{hostOf(connection.origin)}</div>
               <div className="mono">{connection.origin}</div>
               <div className="chips">
-                {connection.capabilities.map((capability) => (
-                  <span className="chip" key={capability}>
-                    {capabilityLabel(capability)}
+                {connection.capabilities.map((scope) => (
+                  <span className="chip" key={scope}>
+                    {capability(scope)}
                   </span>
                 ))}
               </div>
               <div className="muted" style={{ marginTop: 6 }}>
-                Granted {timeAgo(connection.grantedAt)}
-                {connection.expiresAt ? ` · expires ${new Date(connection.expiresAt).toLocaleString()}` : ""}
-                {connection.providers.length ? ` · ${connection.providers.join(", ")}` : " · all providers"}
+                {t("Connections.granted", { when: timeAgo(connection.grantedAt) })}
+                {connection.expiresAt
+                  ? ` · ${t("Connections.expires", { when: dateTime(connection.expiresAt) })}`
+                  : ""}
+                {connection.providers.length
+                  ? ` · ${connection.providers.join(", ")}`
+                  : ` · ${t("Connections.allProviders")}`}
               </div>
               <div className="muted" style={{ marginTop: 2 }}>
                 {connection.dailyLimit > 0
-                  ? `${connection.requestsToday} / ${connection.dailyLimit} requests today`
-                  : `${connection.requestsToday} requests today · no daily limit`}
+                  ? t("Connections.today", {
+                      used: connection.requestsToday,
+                      limit: connection.dailyLimit,
+                    })
+                  : t("Connections.todayNoLimit", { used: connection.requestsToday })}
               </div>
             </div>
             <button className="btn btn-danger" onClick={() => void revoke(connection.origin)}>
-              Revoke
+              {t("Connections.revoke")}
             </button>
           </div>
         ))

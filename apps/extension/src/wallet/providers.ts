@@ -10,6 +10,7 @@ import {
   type ProviderAdapter,
   type ProviderRecord,
 } from "@fluid-wallet/core";
+import { browser } from "wxt/browser";
 
 import { db, getSetting, setSetting } from "./db";
 import { openString, sealString } from "./vault";
@@ -196,22 +197,210 @@ export async function resolveProviderId(
   return providerId;
 }
 
-/** One-token round trip so the UI can tell "wrong key" from "wrong URL". */
-export async function testProvider(providerId: string): Promise<{ ok: true; model: string }> {
-  const record = await db().providers.get(providerId);
-  if (!record) throw new FluidError(FluidErrorCode.ProviderUnavailable, "Unknown provider.");
-  const adapter = await getAdapter(providerId);
-  const model = record.defaultModel ?? record.models[0];
-  if (!model) throw new FluidError(FluidErrorCode.InvalidParams, "This provider has no models.");
+/**
+ * Why a connection test or a model fetch did not work.
+ *
+ * These are outcomes, not exceptions. The three cases the UI can act on —
+ * missing key, missing host access, provider rejecting the key — have to be
+ * told apart and worded in the user's language, and a stack trace in English
+ * cannot do that. Anything genuinely unexpected still throws.
+ */
+export type ProbeFailure =
+  | "no-key"
+  | "invalid-url"
+  | "no-access"
+  | "unauthorized"
+  | "not-found"
+  | "timeout"
+  | "network"
+  | "no-model"
+  | "http";
 
-  // One token of output is enough: it proves the URL, the key and the model id
-  // all resolve, without spending the user's budget on a real answer.
-  await adapter.chat({
-    model,
-    messages: [{ role: "user", content: "ping" }],
-    maxTokens: 1,
+export interface ProbeError {
+  ok: false;
+  reason: ProbeFailure;
+  /** Present for `http`: the status the provider answered with. */
+  status?: number;
+  /** Provider-supplied detail, trimmed. Diagnostic only, never translated. */
+  detail?: string;
+}
+
+/** What the form holds: a saved provider, or a draft that is not saved yet. */
+export interface ProbeInput {
+  id?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  model?: string;
+}
+
+export type TestResult = { ok: true; model: string; latencyMs: number } | ProbeError;
+
+export type RemoteModels =
+  | { ok: true; host: string; models: string[]; latencyMs: number }
+  | (ProbeError & { host?: string });
+
+const PROBE_TIMEOUT_MS = 20_000;
+
+interface ProbeTarget {
+  id: string;
+  baseUrl: string;
+  apiKey: string;
+  origin: string;
+  models: string[];
+  defaultModel?: string;
+}
+
+/**
+ * Fills in whatever the form left out from the stored provider.
+ *
+ * A draft and a saved provider go through the same door on purpose: testing a
+ * key you have not saved yet is the whole point of the button next to the field.
+ * The key is only ever read here, inside the service worker, and only to
+ * authenticate the probe.
+ */
+async function resolveProbe(input: ProbeInput): Promise<ProbeTarget | ProbeError> {
+  const record = input.id ? await db().providers.get(input.id) : undefined;
+  if (input.id && !record) {
+    throw new FluidError(FluidErrorCode.ProviderUnavailable, "Unknown provider.");
+  }
+
+  const baseUrl = (input.baseUrl?.trim() || record?.baseUrl || "").replace(/\/+$/, "");
+  if (!/^https:\/\/[^/]+/.test(baseUrl) && !/^http:\/\/localhost/.test(baseUrl)) {
+    return { ok: false, reason: "invalid-url" };
+  }
+
+  const apiKey = input.apiKey?.trim() || (record?.secret ? await openString(record.secret) : "");
+  if (!apiKey) return { ok: false, reason: "no-key" };
+
+  const origin = new URL(baseUrl).origin;
+  if (!(await hasHostAccess(origin))) return { ok: false, reason: "no-access" };
+
+  return {
+    id: record?.id ?? "draft",
+    baseUrl,
+    apiKey,
+    origin,
+    models: record?.models ?? [],
+    defaultModel: record?.defaultModel,
+  };
+}
+
+/**
+ * Host access lives in the browser, so the wallet has to ask it rather than
+ * assume: `fetch` from a worker without the grant fails as an opaque
+ * "Failed to fetch", which reads as a network problem and sends the user
+ * looking in the wrong place.
+ */
+async function hasHostAccess(origin: string): Promise<boolean> {
+  try {
+    return await browser.permissions.contains({ origins: [`${origin}/*`] });
+  } catch {
+    return false;
+  }
+}
+
+function failure(status: number, detail?: string): ProbeError {
+  const trimmed = detail?.slice(0, 300).trim() || undefined;
+  if (status === 401 || status === 403) return { ok: false, reason: "unauthorized", status, detail: trimmed };
+  if (status === 404) return { ok: false, reason: "not-found", status, detail: trimmed };
+  return { ok: false, reason: "http", status, detail: trimmed };
+}
+
+function networkFailure(cause: unknown): ProbeError {
+  if (cause instanceof Error && (cause.name === "TimeoutError" || cause.name === "AbortError")) {
+    return { ok: false, reason: "timeout" };
+  }
+  if (cause instanceof FluidError && typeof cause.code === "number" && cause.code === FluidErrorCode.Unauthorized) {
+    return { ok: false, reason: "unauthorized" };
+  }
+  return { ok: false, reason: "network", detail: cause instanceof Error ? cause.message : undefined };
+}
+
+/**
+ * One token of output: it proves the URL, the key and the model id all resolve,
+ * without spending the user's budget on a real answer.
+ */
+export async function testProvider(input: ProbeInput): Promise<TestResult> {
+  const target = await resolveProbe(input);
+  if ("ok" in target) return target;
+
+  const model = input.model?.trim() || target.defaultModel || target.models[0];
+  if (!model) return { ok: false, reason: "no-model" };
+
+  const adapter = createOpenAICompatibleProvider({
+    id: target.id,
+    name: target.id,
+    baseUrl: target.baseUrl,
+    apiKey: target.apiKey,
+    models: target.models.length ? target.models : [model],
+    defaultModel: model,
   });
-  return { ok: true, model };
+
+  const started = Date.now();
+  try {
+    await adapter.chat({
+      model,
+      messages: [{ role: "user", content: "ping" }],
+      maxTokens: 1,
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+    });
+  } catch (cause) {
+    if (cause instanceof FluidError && cause.code !== FluidErrorCode.Unauthorized) {
+      // The adapter turns a non-2xx into a FluidError without the status, so the
+      // status is recovered from the message it builds: `… responded with 404.`
+      const status = /responded with (\d{3})/.exec(cause.message)?.[1];
+      return status
+        ? failure(Number(status), typeof cause.data === "string" ? cause.data : undefined)
+        : { ok: false, reason: "network", detail: cause.message };
+    }
+    return networkFailure(cause);
+  }
+
+  return { ok: true, model, latencyMs: Date.now() - started };
+}
+
+/**
+ * The provider's own model list.
+ *
+ * `GET {baseUrl}/models` is the one non-chat endpoint allowed through the raw
+ * proxy, and the same rule applies here: it is a read of the catalogue, not a
+ * reach into the account. Providers that do not expose it answer 404, which the
+ * UI reports as "type the ids by hand" rather than as a failure.
+ */
+export async function listRemoteModels(input: ProbeInput): Promise<RemoteModels> {
+  const target = await resolveProbe(input);
+  if ("ok" in target) return target;
+
+  const started = Date.now();
+  let response: Response;
+  try {
+    response = await fetch(`${target.baseUrl}/models`, {
+      headers: { authorization: `Bearer ${target.apiKey}`, accept: "application/json" },
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+    });
+  } catch (cause) {
+    return { ...networkFailure(cause), host: new URL(target.baseUrl).host };
+  }
+
+  const host = new URL(target.baseUrl).host;
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    return { ...failure(response.status, detail), host };
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    return { ok: false, reason: "http", status: response.status, host };
+  }
+
+  const ids = (payload as { data?: Array<{ id?: unknown }> })?.data;
+  if (!Array.isArray(ids)) return { ok: false, reason: "not-found", host };
+
+  const models = [...new Set(ids.map((entry) => entry?.id).filter((id): id is string => typeof id === "string"))].sort();
+
+  return { ok: true, host, models, latencyMs: Date.now() - started };
 }
 
 export interface Route {

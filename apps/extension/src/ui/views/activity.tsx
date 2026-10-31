@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
+import { useI18n } from "../../i18n/react";
 import type { ActivityView as LogEntry } from "../../wallet/ui";
-import { Card, ErrorText, formatDuration, hostOf, send, timeAgo } from "../components";
+import { Card, ErrorText, hostOf, send, useFormatters } from "../components";
 
 const STATUS_CLASS: Record<string, string> = {
   success: "badge badge-ok",
@@ -11,6 +12,8 @@ const STATUS_CLASS: Record<string, string> = {
 };
 
 export function ActivityView() {
+  const { t } = useI18n();
+  const { timeAgo, duration } = useFormatters();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,28 +21,25 @@ export function ActivityView() {
     void send<LogEntry[]>({ type: "ui:activity", limit: 100 })
       .then(setLogs)
       .catch((cause: unknown) =>
-        setError(cause instanceof Error ? cause.message : "Could not load activity."),
+        setError(cause instanceof Error ? cause.message : t("Activity.loadFailed")),
       );
   }, []);
 
   return (
-    <Card
-      title="Activity"
-      description="One row per model call. Prompts and answers are not logged here."
-    >
+    <Card title={t("Activity.title")} description={t("Activity.description")}>
       {logs.length === 0 ? (
-        <p className="empty">No model calls yet.</p>
+        <p className="empty">{t("Activity.empty")}</p>
       ) : (
         <div className="table-wrap">
           <table className="logs">
             <thead>
               <tr>
-                <th>When</th>
-                <th>App</th>
-                <th>Model</th>
-                <th>Status</th>
-                <th>Time</th>
-                <th>Tokens</th>
+                <th>{t("Activity.when")}</th>
+                <th>{t("Activity.app")}</th>
+                <th>{t("Activity.model")}</th>
+                <th>{t("Activity.status")}</th>
+                <th>{t("Activity.time")}</th>
+                <th>{t("Activity.tokens")}</th>
               </tr>
             </thead>
             <tbody>
@@ -49,9 +49,11 @@ export function ActivityView() {
                   <td>{hostOf(log.origin)}</td>
                   <td className="mono">{log.model}</td>
                   <td>
-                    <span className={STATUS_CLASS[log.status] ?? "badge"}>{log.status}</span>
+                    <span className={STATUS_CLASS[log.status] ?? "badge"}>
+                      {t(`Activity.statuses.${log.status}`)}
+                    </span>
                   </td>
-                  <td>{formatDuration(log.durationMs)}</td>
+                  <td>{duration(log.durationMs)}</td>
                   <td>
                     {log.inputTokens === undefined && log.outputTokens === undefined
                       ? "—"

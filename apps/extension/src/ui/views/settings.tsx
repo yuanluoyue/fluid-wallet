@@ -1,16 +1,18 @@
 import { useState, type FormEvent } from "react";
 
+import { useI18n } from "../../i18n/react";
 import type { ExportResult } from "../../wallet/backup";
 import type { UiState } from "../../wallet/ui";
 import { Card, ErrorText, Field, send } from "../components";
+import { LanguageSelect } from "../language";
 import { openImportWindow } from "../windows";
 
-const AUTO_LOCK_OPTIONS = [
-  { value: 5 * 60_000, label: "5 minutes" },
-  { value: 15 * 60_000, label: "15 minutes" },
-  { value: 60 * 60_000, label: "1 hour" },
-  { value: 0, label: "Never (not recommended)" },
-];
+const AUTO_LOCK_VALUES = [
+  { value: 5 * 60_000, label: "Settings.autoLock.min5" },
+  { value: 15 * 60_000, label: "Settings.autoLock.min15" },
+  { value: 60 * 60_000, label: "Settings.autoLock.hour1" },
+  { value: 0, label: "Settings.autoLock.never" },
+] as const;
 
 export function SettingsView({
   state,
@@ -19,6 +21,7 @@ export function SettingsView({
   state: UiState;
   onState: (state: UiState) => void;
 }) {
+  const { t } = useI18n();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,9 +38,9 @@ export function SettingsView({
       onState(await send<UiState>({ type: "ui:changePassword", current, next }));
       setCurrent("");
       setNext("");
-      setNotice("Password changed. Existing keys stay encrypted with the new one.");
+      setNotice(t("Settings.password.ok"));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not change the password.");
+      setError(cause instanceof Error ? cause.message : t("Settings.password.failed"));
     }
   };
 
@@ -45,7 +48,7 @@ export function SettingsView({
     try {
       onState(await send<UiState>({ type: "ui:setAutoLock", ms }));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not update the auto-lock.");
+      setError(cause instanceof Error ? cause.message : t("Settings.autoLock.failed"));
     }
   };
 
@@ -55,7 +58,7 @@ export function SettingsView({
     try {
       onState(await send<UiState>({ type: "ui:setDailyLimit", limit }));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not update the daily limit.");
+      setError(cause instanceof Error ? cause.message : t("Settings.budget.failed"));
     }
   };
 
@@ -71,43 +74,47 @@ export function SettingsView({
       link.click();
       URL.revokeObjectURL(url);
       setBackupNotice(
-        `${result.providers} credential${result.providers === 1 ? "" : "s"} saved to ${result.filename}. Keep the passphrase separate from the file.`,
+        t("Settings.backup.exported", { count: result.providers, file: result.filename }),
       );
     } catch (cause) {
-      setBackupError(cause instanceof Error ? cause.message : "Could not write the backup.");
+      setBackupError(cause instanceof Error ? cause.message : t("Settings.backup.exportFailed"));
     }
-  };
-
-  const restore = (): void => {
-    openImportWindow();
   };
 
   return (
     <>
-      <Card title="Auto-lock" description="The wallet locks itself after a period without use.">
-        <Field label="Lock after">
+      {/* Also in the header, where it is one click away from every screen. This
+          copy is here because Settings is where a user goes looking for it. */}
+      <Card title={t("Settings.language.title")} description={t("Settings.language.description")}>
+        <Field label={t("Common.language")}>
+          <LanguageSelect />
+        </Field>
+      </Card>
+
+      <Card
+        title={t("Settings.autoLock.title")}
+        description={t("Settings.autoLock.description")}
+      >
+        <Field label={t("Settings.autoLock.label")}>
           <select
             className="input"
             value={state.autoLockMs}
             onChange={(event) => void changeAutoLock(Number(event.target.value))}
           >
-            {AUTO_LOCK_OPTIONS.map((option) => (
+            {AUTO_LOCK_VALUES.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {t(option.label)}
               </option>
             ))}
           </select>
         </Field>
         <button className="btn" onClick={() => void send<UiState>({ type: "ui:lock" }).then(onState)}>
-          Lock now
+          {t("Settings.autoLock.now")}
         </button>
       </Card>
 
-      <Card
-        title="Daily request budget"
-        description="Counted per site, per day. Requests over the limit are refused before the provider is called, so a retry loop cannot drain your credit overnight."
-      >
-        <Field label="Requests per site per day" hint="0 means unlimited. Applies to every connected app.">
+      <Card title={t("Settings.budget.title")} description={t("Settings.budget.description")}>
+        <Field label={t("Settings.budget.label")} hint={t("Settings.budget.hint")}>
           <input
             className="input"
             type="number"
@@ -120,12 +127,9 @@ export function SettingsView({
         </Field>
       </Card>
 
-      <Card
-        title="Master password"
-        description="Changing it rewraps the encryption key; stored API keys are not re-entered."
-      >
+      <Card title={t("Settings.password.title")} description={t("Settings.password.description")}>
         <form className="stack" onSubmit={changePassword}>
-          <Field label="Current password">
+          <Field label={t("Settings.password.current")}>
             <input
               className="input"
               type="password"
@@ -133,7 +137,7 @@ export function SettingsView({
               onChange={(event) => setCurrent(event.target.value)}
             />
           </Field>
-          <Field label="New password" hint="At least 8 characters.">
+          <Field label={t("Settings.password.next")} hint={t("Settings.password.nextHint")}>
             <input
               className="input"
               type="password"
@@ -144,19 +148,13 @@ export function SettingsView({
           <ErrorText error={error} />
           {notice ? <p className="badge badge-ok">{notice}</p> : null}
           <button className="btn btn-primary" type="submit" disabled={!current || next.length < 8}>
-            Change password
+            {t("Settings.password.submit")}
           </button>
         </form>
       </Card>
 
-      <Card
-        title="Encrypted backup"
-        description="One file with your provider keys, sealed with its own passphrase. Connected apps, grants and logs stay behind on purpose."
-      >
-        <Field
-          label="Backup passphrase"
-          hint="At least 8 characters. Not your master password, and not stored anywhere — losing it loses the backup."
-        >
+      <Card title={t("Settings.backup.title")} description={t("Settings.backup.description")}>
+        <Field label={t("Settings.backup.passphrase")} hint={t("Settings.backup.passphraseHint")}>
           <input
             className="input"
             type="password"
@@ -167,22 +165,14 @@ export function SettingsView({
         <ErrorText error={backupError} />
         {backupNotice ? <p className="badge badge-ok">{backupNotice}</p> : null}
         <div className="actions">
-          <button
-            className="btn"
-            disabled={passphrase.length < 8}
-            onClick={() => void download()}
-          >
-            Export backup
+          <button className="btn" disabled={passphrase.length < 8} onClick={() => void download()}>
+            {t("Settings.backup.export")}
           </button>
-          <button className="btn" onClick={restore}>
-            Restore from a file
+          <button className="btn" onClick={openImportWindow}>
+            {t("Settings.backup.restore")}
           </button>
         </div>
-        <p className="hint">
-          Restoring merges by provider id and needs the passphrase the file was exported with, so it
-          opens in a window of its own: a file picker takes focus and the toolbar panel does not
-          survive that.
-        </p>
+        <p className="hint">{t("Settings.backup.restoreHint")}</p>
       </Card>
     </>
   );

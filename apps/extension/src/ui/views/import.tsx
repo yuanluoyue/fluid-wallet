@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useI18n } from "../../i18n/react";
 import type { ImportResult } from "../../wallet/backup";
 import { ErrorText, Field, send } from "../components";
 
@@ -10,6 +11,7 @@ import { ErrorText, Field, send } from "../components";
  * event can fire, so the selection has to happen on this page.
  */
 export function ImportView() {
+  const { t } = useI18n();
   const [passphrase, setPassphrase] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -25,10 +27,14 @@ export function ImportView() {
       const contents = await file.text();
       const result = await send<ImportResult>({ type: "ui:importBackup", passphrase, contents });
       setNotice(
-        `Restored: ${result.imported} new, ${result.updated} updated${result.skipped ? `, ${result.skipped} skipped` : ""}. Connected apps are not restored — re-connect them.`,
+        t("Import.done", {
+          imported: result.imported,
+          updated: result.updated,
+          skipped: result.skipped ?? 0,
+        }),
       );
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not read the backup.");
+      setError(cause instanceof Error ? cause.message : t("Import.failed"));
     } finally {
       setBusy(false);
     }
@@ -36,11 +42,8 @@ export function ImportView() {
 
   return (
     <div className="narrow">
-      <h1 className="hero-title">Restore a backup</h1>
-      <p className="muted">
-        Merges by provider id: providers already in this wallet with the same id are overwritten,
-        nothing is deleted.
-      </p>
+      <h1 className="hero-title">{t("Import.title")}</h1>
+      <p className="muted">{t("Import.body")}</p>
 
       <form
         className="card stack"
@@ -50,7 +53,7 @@ export function ImportView() {
           void restore();
         }}
       >
-        <Field label="Backup file">
+        <Field label={t("Import.file")}>
           <input
             className="input"
             type="file"
@@ -58,10 +61,7 @@ export function ImportView() {
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
         </Field>
-        <Field
-          label="Backup passphrase"
-          hint="The passphrase the file was exported with — not your master password."
-        >
+        <Field label={t("Import.passphrase")} hint={t("Import.passphraseHint")}>
           <input
             className="input"
             type="password"
@@ -72,11 +72,15 @@ export function ImportView() {
         <ErrorText error={error} />
         {notice ? <p className="badge badge-ok">{notice}</p> : null}
         <div className="actions">
-          <button className="btn btn-primary" type="submit" disabled={!file || passphrase.length < 8 || busy}>
-            {busy ? "Restoring…" : "Restore"}
+          <button
+            className="btn btn-primary"
+            type="submit"
+            disabled={!file || passphrase.length < 8 || busy}
+          >
+            {busy ? t("Import.submitting") : t("Import.submit")}
           </button>
           <button className="btn" type="button" onClick={() => window.close()}>
-            Close
+            {t("Common.close")}
           </button>
         </div>
       </form>

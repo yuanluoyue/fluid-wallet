@@ -9,9 +9,11 @@ a browser wallet that owns the credentials, and a protocol that lets any app ask
 for inference without ever touching them.
 
 > Status: **MVP-03**. The wallet works end to end: encrypted vault, provider
-> management, connect approval, scoped permissions, streamed inference,
-> cancellation, an activity log, and a raw proxy path so apps can keep using
-> their provider's own SDK. Store packaging and tool-call round trips are next.
+> management with connection tests and a fetched model catalogue, connect
+> approval, scoped permissions, streamed inference, cancellation, an activity
+> log, and a raw proxy path so apps can keep using their provider's own SDK. The
+> panel itself is bilingual (English / 中文, switchable in the header). Store
+> packaging and tool-call round trips are next.
 
 ## Principles
 
@@ -232,9 +234,14 @@ Known gaps, stated plainly:
   with conversation history and per-request token accounting.
 - **Approval resilience**: if Chrome kills the service worker while the approval
   window is open, the pending `wallet.connect` fails; the page must retry.
-- **Provider breadth**: DeepSeek plus any OpenAI-compatible endpoint. No OAuth,
-  no subscription-token flow, no automatic model catalogue refresh. Deliberate:
-  every advertised provider is an API surface to keep honest.
+- **Provider breadth**: DeepSeek plus any OpenAI-compatible endpoint. Adding one
+  is a form, and the wallet can test it and pull its `/models` catalogue, but
+  there is no OAuth or subscription-token flow. Deliberate: every advertised
+  provider is an API surface to keep honest.
+- **Wallet UI translations**: English and Chinese ship together. The UI is
+  localized; error text thrown by the service worker is not, and a third
+  language means adding one file next to `zh.ts` — typed as `Messages`, so it
+  cannot half-exist.
 - **Budgets**: rate limiting is per origin, but there is no per-app spending cap,
   and a raw request cannot be priced without reading it.
 

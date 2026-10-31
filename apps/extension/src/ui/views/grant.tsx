@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { browser } from "wxt/browser";
 
+import { useI18n } from "../../i18n/react";
+
 /**
  * Asks the browser for access to one provider origin.
  *
@@ -12,6 +14,7 @@ import { browser } from "wxt/browser";
  * back with `permissions.contains`, so nothing has to be reported home here.
  */
 export function GrantView({ origin }: { origin: string }) {
+  const { t } = useI18n();
   const [status, setStatus] = useState<"idle" | "asking" | "granted" | "denied">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -28,17 +31,17 @@ export function GrantView({ origin }: { origin: string }) {
       setTimeout(() => window.close(), 700);
     } catch (cause) {
       setStatus("idle");
-      setError(cause instanceof Error ? cause.message : "The browser refused the request.");
+      setError(cause instanceof Error ? cause.message : t("Grant.failed"));
     }
   };
 
   if (!/^https?:\/\/[^/]+$/.test(origin)) {
     return (
       <div className="narrow">
-        <h1 className="hero-title">Unknown site</h1>
-        <p className="muted">The origin to allow is missing or malformed.</p>
+        <h1 className="hero-title">{t("Grant.unknownTitle")}</h1>
+        <p className="muted">{t("Grant.unknownBody")}</p>
         <button className="btn" style={{ marginTop: 16 }} onClick={() => window.close()}>
-          Close
+          {t("Common.close")}
         </button>
       </div>
     );
@@ -46,21 +49,16 @@ export function GrantView({ origin }: { origin: string }) {
 
   return (
     <div className="narrow">
-      <p className="badge">Provider access</p>
+      <p className="badge">{t("Grant.badge")}</p>
       <h1 className="hero-title" style={{ marginTop: 10 }}>
-        Allow this site?
+        {t("Grant.title")}
       </h1>
       <p className="mono">{origin}</p>
       <p className="muted" style={{ marginTop: 10 }}>
-        Fluid Wallet calls this address on your behalf, using the key stored in the wallet. The
-        browser asks once per host and remembers the answer.
+        {t("Grant.body")}
       </p>
-      {status === "granted" ? <p className="badge badge-ok">Access granted.</p> : null}
-      {status === "denied" ? (
-        <p className="badge badge-warn">
-          Not granted. The provider stays saved, but calls to it will fail.
-        </p>
-      ) : null}
+      {status === "granted" ? <p className="badge badge-ok">{t("Grant.granted")}</p> : null}
+      {status === "denied" ? <p className="badge badge-warn">{t("Grant.denied")}</p> : null}
       {error ? <p className="error">{error}</p> : null}
 
       <div className="stack" style={{ marginTop: 18 }}>
@@ -70,13 +68,13 @@ export function GrantView({ origin }: { origin: string }) {
           disabled={status === "asking" || status === "granted"}
         >
           {status === "granted"
-            ? "Granted"
+            ? t("Grant.grantedButton")
             : status === "asking"
-              ? "Waiting for the browser…"
-              : "Allow access"}
+              ? t("Grant.waiting")
+              : t("Grant.allow")}
         </button>
         <button className="btn" onClick={() => window.close()}>
-          Close
+          {t("Common.close")}
         </button>
       </div>
     </div>

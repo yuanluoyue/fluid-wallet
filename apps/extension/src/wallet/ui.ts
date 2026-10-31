@@ -11,6 +11,7 @@ import {
   deleteProvider,
   getDefaultProviderId,
   listRecords,
+  listRemoteModels,
   saveProvider,
   setDefaultProvider,
   testProvider,
@@ -119,7 +120,10 @@ export async function handleUi(message: UiMessage): Promise<unknown> {
       return providers();
 
     case "ui:testProvider":
-      return testProvider(message.id);
+      return testProvider(message.input);
+
+    case "ui:listModels":
+      return listRemoteModels(message.input);
 
     case "ui:setDefaultProvider":
       await setDefaultProvider(message.id);

@@ -1,5 +1,5 @@
 import type { ApprovalDecision } from "./wallet/approval";
-import type { ProviderInput } from "./wallet/providers";
+import type { ProbeInput, ProviderInput } from "./wallet/providers";
 
 /** Message type for the extension's own UI pages (popup, options). */
 export const UI_MESSAGE = "fluid:ui";
@@ -15,7 +15,8 @@ export type UiMessage =
   | { type: "ui:providers" }
   | { type: "ui:saveProvider"; input: ProviderInput }
   | { type: "ui:deleteProvider"; id: string }
-  | { type: "ui:testProvider"; id: string }
+  | { type: "ui:testProvider"; input: ProbeInput }
+  | { type: "ui:listModels"; input: ProbeInput }
   | { type: "ui:setDefaultProvider"; id: string }
   | { type: "ui:connections" }
   | { type: "ui:revoke"; origin: string }
