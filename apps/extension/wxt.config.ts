@@ -19,13 +19,14 @@ export default defineConfig({
     host_permissions: ["https://api.deepseek.com/*"],
     optional_host_permissions: ["https://*/*"],
   },
-  // `wxt dev` only opens a browser when `web-ext` is installed. It creates a
-  // throwaway profile by default, which would mean setting the master password
-  // and re-adding the provider key on every restart — the wallet would never
-  // look like the one a real user has. Keeping the profile under `.wxt/`
-  // (already gitignored) makes dev and manual testing agree.
+  // `wxt dev` builds and watches; it does not load the extension anywhere.
+  // Chrome cannot be told "watch this folder from now on", and the launcher WXT
+  // uses would start a throwaway profile — which means setting the master
+  // password and re-adding the provider key on every restart. Loading the built
+  // folder by hand keeps one real profile, so `dev` only prints where the build
+  // lands.
   webExt: {
-    chromiumArgs: ["--user-data-dir=./.wxt/chrome-data"],
+    disabled: true,
   },
   vite: () => ({
     resolve: {
