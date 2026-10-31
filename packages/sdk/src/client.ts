@@ -57,7 +57,23 @@ const DETECT_TIMEOUT_MS = 2_000;
  * The second budget, spent only when a bridge proved the extension is there.
  * It covers a service worker that has to be booted from scratch; see `detect`.
  */
-const DETECT_COLD_START_MS = 8_000;
+const DETECT_COLD_START_MS = 10_000;
+
+/**
+ * One `wallet.getInfo` attempt, kept so a failure can be explained later.
+ *
+ * "Nothing answered" is the least useful thing a wallet can say, and it is
+ * almost always the sum of several attempts: a 2s probe, a retry, and whatever
+ * the page-side pipe was doing meanwhile. Recording each attempt turns the
+ * post-mortem into arithmetic instead of guesswork.
+ */
+export interface FluidDetectAttempt {
+  budgetMs: number;
+  elapsedMs: number;
+  /** `answered`, `timeout`, or the wire code that came back. */
+  outcome: string;
+  message?: string;
+}
 
 export type FluidAvailability = "unknown" | "available" | "unavailable";
 export type FluidConnectionStatus = "disconnected" | "connecting" | "connected";
@@ -123,6 +139,7 @@ export class FluidClient {
   readonly #detachEvents: () => void;
 
   #state: FluidClientState = initialState();
+  #detectAttempts: FluidDetectAttempt[] = [];
   #disposed = false;
 
   constructor(options: FluidClientOptions = {}) {
@@ -197,16 +214,37 @@ export class FluidClient {
         ? [DETECT_TIMEOUT_MS, DETECT_COLD_START_MS]
         : [DETECT_TIMEOUT_MS];
 
+    this.#detectAttempts = [];
+
     for (const timeoutMs of budgets) {
+      const startedAt = Date.now();
       try {
         const info = await this.#call<FluidWalletInfo>(
           FluidMethod.WalletGetInfo,
           undefined,
           { timeoutMs },
         );
+        this.#recordAttempt({
+          budgetMs: timeoutMs,
+          elapsedMs: Date.now() - startedAt,
+          outcome: "answered",
+        });
         this.#patch({ availability: "available", wallet: info });
         return info;
       } catch (error) {
+        const elapsedMs = Date.now() - startedAt;
+        const code = FluidError.is(error) ? error.code : undefined;
+        this.#recordAttempt({
+          budgetMs: timeoutMs,
+          elapsedMs,
+          outcome:
+            code === FluidErrorCode.Timeout
+              ? "timeout"
+              : code === FluidErrorCode.NotInstalled
+                ? "not-installed"
+                : `error ${code ?? "unknown"}`,
+          ...(error instanceof Error ? { message: error.message } : {}),
+        });
         if (
           !FluidError.is(error, FluidErrorCode.Timeout) &&
           !FluidError.is(error, FluidErrorCode.NotInstalled)
@@ -219,6 +257,25 @@ export class FluidClient {
 
     this.#patch({ availability: "unavailable", wallet: null });
     return null;
+  }
+
+  /**
+   * What the last `detect()` actually did, attempt by attempt.
+   *
+   * A caller that is about to tell someone "the wallet is not answering" owes
+   * them this much: which calls went out, how long each waited, and what came
+   * back.
+   */
+  get detectAttempts(): readonly FluidDetectAttempt[] {
+    return this.#detectAttempts;
+  }
+
+  #recordAttempt(attempt: FluidDetectAttempt): void {
+    this.#detectAttempts = [...this.#detectAttempts, attempt];
+    const suffix = attempt.message ? `: ${attempt.message}` : "";
+    console.debug(
+      `[fluid-wallet] wallet.getInfo ${attempt.outcome} after ${attempt.elapsedMs}ms (budget ${attempt.budgetMs}ms)${suffix}`,
+    );
   }
 
   async connect(request?: Partial<FluidPermissionRequest>): Promise<FluidPermission> {

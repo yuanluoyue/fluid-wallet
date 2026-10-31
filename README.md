@@ -127,6 +127,15 @@ anything else — in the page's console, `window.fluid` is either an object (the
 extension injected and its worker is the problem) or `undefined` (no script ran
 here). The playground prints that same bit next to its status chips.
 
+For anything past that first bit, the playground's **Diagnose** button prints the
+whole pipe at once: the bridge counters (`window.fluid.diagnostics()`), a bare
+`wallet.getInfo` with its round-trip time and raw envelope, and each `detect()`
+attempt with the deadline it spent. The same hops log `[fluid-wallet]` lines in
+the page console — relay forwards, the worker's answer with its latency — and in
+the service worker's own console (chrome://extensions → Fluid Wallet → service
+worker), which is where a slow `dispatch` shows up. A failure card also quotes
+those counters under `action:`, so a screenshot is enough to report one.
+
 ## Deploying the website
 
 `apps/website` deploys to Cloudflare Workers through OpenNext, the same setup as

@@ -5,6 +5,7 @@ import {
   FluidErrorCode,
   PROTOCOL_VERSION,
   type FluidBridge,
+  type FluidBridgeAttempt,
   type FluidEvent,
   type FluidRequest,
   type FluidResponse,
@@ -22,6 +23,8 @@ declare global {
 interface PendingRequest {
   resolve: (response: FluidResponse) => void;
   timer: number;
+  method: string;
+  sentAt: number;
 }
 
 interface BridgeEnvelope {
@@ -46,7 +49,13 @@ function installBridge(): void {
   const startedAt = Date.now();
   const pending = new Map<string, PendingRequest>();
   const handlers = new Set<(event: FluidEvent) => void>();
-  const stats = { requests: 0, answers: 0, relayAnnouncedAt: null as number | null };
+  const stats = {
+    requests: 0,
+    answers: 0,
+    events: 0,
+    relayAnnouncedAt: null as number | null,
+    last: undefined as FluidBridgeAttempt | undefined,
+  };
 
   window.addEventListener("message", (event: MessageEvent<unknown>) => {
     if (event.source !== window || !isEnvelope(event.data)) return;
@@ -54,20 +63,42 @@ function installBridge(): void {
 
     if (envelope.kind === FLUID_KIND.ready) {
       stats.relayAnnouncedAt ??= Date.now();
+      console.debug(`[fluid-wallet] relay announced after ${stats.relayAnnouncedAt - startedAt}ms`);
       return;
     }
 
     if (envelope.kind === FLUID_KIND.response && envelope.response) {
       const entry = pending.get(envelope.response.id);
-      if (!entry) return;
+      if (!entry) {
+        // An answer nobody is waiting for: the request already hit its deadline,
+        // or the id was rewritten in flight. Both are worth seeing.
+        console.debug(
+          `[fluid-wallet] answer for unknown request ${envelope.response.id}`,
+          envelope.response.error?.message ?? "ok",
+        );
+        return;
+      }
       window.clearTimeout(entry.timer);
       pending.delete(envelope.response.id);
       stats.answers += 1;
+      const elapsedMs = Date.now() - entry.sentAt;
+      const error = envelope.response.error;
+      stats.last = {
+        method: entry.method,
+        id: envelope.response.id,
+        answeredAfterMs: elapsedMs,
+        ...(error ? { errorCode: error.code, error: error.message } : {}),
+      };
+      console.debug(
+        `[fluid-wallet] answer ${entry.method} in ${elapsedMs}ms`,
+        error ? `error ${error.code}: ${error.message}` : "ok",
+      );
       entry.resolve(envelope.response);
       return;
     }
 
     if (envelope.kind === FLUID_KIND.event && envelope.event) {
+      stats.events += 1;
       for (const handler of handlers) handler(envelope.event);
     }
   });
@@ -82,6 +113,9 @@ function installBridge(): void {
           : { relayAnnouncedAfterMs: stats.relayAnnouncedAt - startedAt }),
         requests: stats.requests,
         answers: stats.answers,
+        pending: pending.size,
+        events: stats.events,
+        ...(stats.last ? { last: stats.last } : {}),
       };
     },
     request(request: FluidRequest): Promise<FluidResponse> {
@@ -93,9 +127,17 @@ function installBridge(): void {
           : FLUID_LIMITS.requestTimeoutMs;
 
         stats.requests += 1;
+        const sentAt = Date.now();
+        stats.last = { method: request.method, id: request.id };
+        console.debug(
+          `[fluid-wallet] request ${request.method} relay=${stats.relayAnnouncedAt !== null}`,
+        );
 
         const timer = window.setTimeout(() => {
           pending.delete(request.id);
+          console.debug(
+            `[fluid-wallet] ${request.method} got no answer in ${deadlineMs}ms (relay=${stats.relayAnnouncedAt !== null}, pending=${pending.size})`,
+          );
           resolve({
             jsonrpc: "2.0",
             id: request.id,
@@ -106,7 +148,7 @@ function installBridge(): void {
           });
         }, deadlineMs);
 
-        pending.set(request.id, { resolve, timer });
+        pending.set(request.id, { resolve, timer, method: request.method, sentAt });
         window.postMessage(
           { channel: FLUID_MESSAGE_CHANNEL, kind: FLUID_KIND.request, request },
           window.location.origin,
@@ -134,7 +176,14 @@ export default defineContentScript({
   runAt: "document_start",
   world: "MAIN",
   main() {
-    if (window.fluid) return;
+    if (window.fluid) {
+      // A bridge from an earlier injection outlives the extension that put it
+      // there. Keeping it is correct (replacing it would orphan every in-flight
+      // request), but it is worth saying out loud: this page is running the old
+      // build.
+      console.debug("[fluid-wallet] bridge already present; keeping the existing one");
+      return;
+    }
     installBridge();
   },
 });

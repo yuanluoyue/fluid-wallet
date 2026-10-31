@@ -35,6 +35,7 @@ export default defineContentScript({
     };
 
     const fail = (id: string, message: string): void => {
+      console.debug(`[fluid-wallet] relay failure: ${message}`);
       postToPage({
         kind: FLUID_KIND.response,
         response: {
@@ -53,22 +54,34 @@ export default defineContentScript({
       if (!data.kind || data.kind !== FLUID_KIND.request || !data.request) return;
 
       const request = data.request;
+      const sentAt = Date.now();
+      console.debug(`[fluid-wallet] relay forwarding ${request.method}`);
 
       // An extension can be reloaded or updated while a tab stays open. This
       // script keeps running, but its `runtime` is gone: every call throws
       // "Extension context invalidated", nothing is forwarded, and from the page
       // that is indistinguishable from a wallet that is not installed at all.
       // Saying so is the difference between a dead end and "reload the page".
-      const runtime = browser.runtime;
-      if (!runtime?.id) {
-        fail(request.id, "The wallet was reloaded or updated. Reload this page to reconnect.");
-        return;
-      }
-
+      //
+      // Touching `browser.runtime` is itself the throw: after invalidation the
+      // getter raises, so the read belongs inside the guard. Outside it, the
+      // exception escapes a `message` listener where nothing can catch it —
+      // which is precisely a request that leaves the page and never comes back.
       try {
+        const runtime = browser.runtime;
+        if (!runtime?.id) {
+          fail(request.id, "The wallet was reloaded or updated. Reload this page to reconnect.");
+          return;
+        }
+
         runtime
           .sendMessage({ type: FLUID_BACKGROUND_REQUEST, request })
           .then((response: unknown) => {
+            const answeredAt = Date.now();
+            console.debug(
+              `[fluid-wallet] background answered ${request.method} in ${answeredAt - sentAt}ms`,
+              isResponse(response) ? "" : "with an unrecognised envelope",
+            );
             postToPage({
               kind: FLUID_KIND.response,
               response: isResponse(response)
@@ -84,6 +97,10 @@ export default defineContentScript({
             });
           })
           .catch((error: unknown) => {
+            console.debug(
+              `[fluid-wallet] background failed ${request.method} after ${Date.now() - sentAt}ms`,
+              error,
+            );
             fail(
               request.id,
               error instanceof Error ? error.message : "Fluid Wallet bridge failed.",

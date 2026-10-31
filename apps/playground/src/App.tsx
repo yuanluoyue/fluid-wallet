@@ -80,6 +80,8 @@ export function App() {
   const [transcript, setTranscript] = useState<Message[]>([]);
   const [draft, setDraft] = useState("用三句话解释什么是浏览器扩展的钱包。");
   const [advanced, setAdvanced] = useState<string[]>([]);
+  const [diagnosis, setDiagnosis] = useState<string[] | null>(null);
+  const [probing, setProbing] = useState(false);
 
   useEffect(() => () => client.dispose(), [client]);
 
@@ -140,6 +142,53 @@ export function App() {
     } finally {
       setBusy(false);
     }
+  };
+
+  /**
+   * One button that prints the whole pipe instead of asking anyone to open
+   * DevTools and piece it together: bridge present? relay alive? how long did a
+   * bare `wallet.getInfo` take, and what exactly came back?
+   */
+  const diagnose = async () => {
+    setProbing(true);
+    const lines: string[] = [`origin ${window.location.origin}`];
+    const counters = client.diagnostics;
+    lines.push(
+      counters
+        ? `bridge ok · relay ${counters.relay ? `up after ${counters.relayAnnouncedAfterMs ?? 0}ms` : "never announced"} · ${counters.requests} sent / ${counters.answers} answered${counters.pending ? ` / ${counters.pending} pending` : ""}`
+        : "bridge has no counters (older build)",
+    );
+
+    const bridge = getFluidBridge();
+    if (!bridge) {
+      lines.push("window.fluid: undefined");
+    } else {
+      const started = performance.now();
+      const raw = await Promise.race([
+        bridge.request({ jsonrpc: "2.0", id: `diag-${Date.now()}`, method: "wallet.getInfo" }),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 12_000)),
+      ]);
+      const elapsedMs = Math.round(performance.now() - started);
+      lines.push(
+        raw === null
+          ? `wallet.getInfo: no envelope after ${elapsedMs}ms (a bare bridge waits 60s)`
+          : `wallet.getInfo: ${elapsedMs}ms · ${JSON.stringify(raw).slice(0, 600)}`,
+      );
+      const after = client.diagnostics;
+      if (after) {
+        lines.push(
+          `after probe: ${after.requests} sent / ${after.answers} answered${after.pending ? ` / ${after.pending} pending` : ""}`,
+        );
+      }
+    }
+
+    for (const attempt of client.detectAttempts) {
+      lines.push(
+        `detect: ${attempt.outcome} at ${attempt.elapsedMs}ms (budget ${attempt.budgetMs}ms)${attempt.message ? ` — ${attempt.message}` : ""}`,
+      );
+    }
+    setDiagnosis(lines);
+    setProbing(false);
   };
 
   const disconnect = async () => {
@@ -292,6 +341,27 @@ export function App() {
             action: {issue.action}
             {issue.code ? ` · code ${issue.code}` : ""}
           </p>
+          {issue.evidence ? (
+            <p style={{ ...s.mono, color: "#8a8f99", margin: "4px 0 0" }}>{issue.evidence}</p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {diagnosis ? (
+        <section style={{ ...s.card, background: "#f7f7f5" }}>
+          <strong style={{ fontSize: 13 }}>Diagnosis</strong>
+          <pre
+            style={{
+              ...s.mono,
+              margin: "8px 0 0",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              lineHeight: 1.6,
+              color: "#3d424b",
+            }}
+          >
+            {diagnosis.join("\n")}
+          </pre>
         </section>
       ) : null}
 
@@ -315,6 +385,9 @@ export function App() {
             </button>
             <button style={s.button} onClick={() => void client.detect()} type="button">
               Detect wallet
+            </button>
+            <button style={s.button} onClick={() => void diagnose()} disabled={probing} type="button">
+              {probing ? "Probing…" : "Diagnose"}
             </button>
           </div>
         </section>

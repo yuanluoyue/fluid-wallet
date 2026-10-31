@@ -43,8 +43,55 @@ export interface FluidIssue {
   detail: string;
   /** Present for rate limits, so a UI can count down instead of guessing. */
   retryAfterMs?: number;
+  /** Counters behind an "unreachable wallet", for a bug report. */
+  evidence?: string;
   /** Original protocol code, for logging. */
   code?: number;
+}
+
+/**
+ * Turns the SDK's evidence into one line.
+ *
+ * These are the numbers an issue needs and a screenshot usually loses: how many
+ * requests left the page, how many came back, and how long each probe waited
+ * before giving up. Without them "not answering" is a feeling.
+ */
+function describeEvidence(raw: unknown): string {
+  const data = raw as {
+    diagnostics?: {
+      relay: boolean;
+      relayAnnouncedAfterMs?: number;
+      requests: number;
+      answers: number;
+      pending?: number;
+      last?: { method: string; answeredAfterMs?: number; error?: string };
+    };
+    attempts?: { outcome: string; elapsedMs: number; budgetMs: number }[];
+  };
+
+  const parts: string[] = [];
+  const diagnostics = data.diagnostics;
+  if (diagnostics) {
+    parts.push(
+      diagnostics.relay
+        ? `relay up after ${diagnostics.relayAnnouncedAfterMs ?? 0}ms`
+        : "relay never announced",
+    );
+    parts.push(
+      `${diagnostics.requests} sent / ${diagnostics.answers} answered${diagnostics.pending ? ` / ${diagnostics.pending} still waiting` : ""}`,
+    );
+    if (diagnostics.last) {
+      parts.push(
+        `last ${diagnostics.last.method} ${diagnostics.last.answeredAfterMs === undefined ? "never came back" : `${diagnostics.last.answeredAfterMs}ms`}${diagnostics.last.error ? ` (${diagnostics.last.error})` : ""}`,
+      );
+    }
+  }
+  if (data.attempts?.length) {
+    parts.push(
+      `getInfo ${data.attempts.map((attempt) => `${attempt.outcome}@${attempt.elapsedMs}ms/${attempt.budgetMs}ms`).join(", ")}`,
+    );
+  }
+  return parts.join(" · ");
 }
 
 const UNKNOWN: FluidIssue = {
@@ -69,6 +116,8 @@ export function describeFluidError(error: unknown): FluidIssue {
 
   switch (error.code) {
     case FluidErrorCode.NotInstalled: {
+      const evidence = describeEvidence(data);
+      const withEvidence = evidence === "" ? base : { ...base, evidence };
       // Two different pages produce the same "nothing answered" from the
       // caller's side, and the fix differs: one is a missing extension, the
       // other is an installed extension whose worker is dead. The SDK knows
@@ -77,7 +126,7 @@ export function describeFluidError(error: unknown): FluidIssue {
       // there.
       if (data.reason === "no-relay") {
         return {
-          ...base,
+          ...withEvidence,
           kind: "unavailable",
           action: "retry",
           title: "Reload this page to reconnect",
@@ -88,7 +137,7 @@ export function describeFluidError(error: unknown): FluidIssue {
 
       if (data.reason === "worker-silent") {
         return {
-          ...base,
+          ...withEvidence,
           kind: "unavailable",
           action: "install",
           title: "The wallet is installed but not answering",
@@ -98,7 +147,7 @@ export function describeFluidError(error: unknown): FluidIssue {
       }
 
       return {
-        ...base,
+        ...withEvidence,
         kind: "unavailable",
         action: "install",
         title: "No wallet found",

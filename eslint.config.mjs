@@ -27,7 +27,9 @@ export default tseslint.config(
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/no-explicit-any": "warn",
-      "no-console": ["warn", { allow: ["warn", "error"] }],
+      // `debug` is the diagnostics verb: it is filtered out of normal consoles
+      // and is how the wallet explains a failed hop (page → relay → worker).
+      "no-console": ["warn", { allow: ["warn", "error", "debug"] }],
     },
   },
 

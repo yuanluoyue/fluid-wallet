@@ -67,4 +67,31 @@ describe("describeFluidError", () => {
     });
     expect(describeFluidError(undefined)).toMatchObject({ kind: "unknown" });
   });
+
+  it("quotes the page-side counters behind a silent wallet", () => {
+    // The one thing that turns "it does not work" into a diagnosis: how many
+    // requests left the page, how many came back, and how long each probe
+    // waited. Without it every report is a guess.
+    const issue = describeFluidError(
+      new FluidError(FluidErrorCode.NotInstalled, "worker never answered", {
+        reason: "worker-silent",
+        diagnostics: { relay: true, relayAnnouncedAfterMs: 56, requests: 2, answers: 0, pending: 2 },
+        attempts: [
+          { outcome: "timeout", elapsedMs: 2_001, budgetMs: 2_000 },
+          { outcome: "timeout", elapsedMs: 10_002, budgetMs: 10_000 },
+        ],
+      }),
+    );
+
+    expect(issue.evidence).toContain("relay up after 56ms");
+    expect(issue.evidence).toContain("2 sent / 0 answered");
+    expect(issue.evidence).toContain("timeout@2001ms/2000ms");
+  });
+
+  it("omits the counter line when there is nothing to quote", () => {
+    expect(
+      describeFluidError(new FluidError(FluidErrorCode.NotInstalled, "no bridge", { reason: "not-injected" }))
+        .evidence,
+    ).toBeUndefined();
+  });
 });

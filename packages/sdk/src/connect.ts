@@ -110,6 +110,17 @@ export async function connectFluid(options: ConnectFluidOptions = {}): Promise<F
   const relayGone = injected && client.diagnostics?.relay === false;
   const reason = !injected ? "not-injected" : relayGone ? "no-relay" : "worker-silent";
 
+  // Whatever went wrong, the next person to look at this needs the numbers,
+  // not a story. They travel with the error so a page can print them and a bug
+  // report can quote them without anyone opening DevTools.
+  const evidence = {
+    reason,
+    transport: client.transportKind,
+    attempts: client.detectAttempts,
+    ...(client.diagnostics ? { diagnostics: client.diagnostics } : {}),
+  };
+  console.debug("[fluid-wallet] wallet unreachable", evidence);
+
   const apiKey = options.devApiKey ?? env("FLUID_DEV_API_KEY");
   if (!apiKey) {
     throw new FluidError(
@@ -119,7 +130,7 @@ export async function connectFluid(options: ConnectFluidOptions = {}): Promise<F
         : injected
           ? "Fluid Wallet is injected in this page, but its background worker never answered."
           : "No Fluid Wallet bridge exists in this page: the extension is not loaded, or it did not inject here.",
-      { reason },
+      evidence,
     );
   }
   if (isProduction()) {

@@ -21,15 +21,29 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
     if (isFluidBackgroundRequest(message)) {
       const origin = resolveSenderOrigin(sender);
+      const startedAt = Date.now();
+      const method = message.request.method;
+      console.debug(`[fluid-wallet] dispatch ${method} from ${origin ?? "(no origin)"}`);
       if (!origin) {
+        // Without an origin the request is rejected, and a rejection that looks
+        // like a hang is the hardest kind to diagnose from a page.
         console.warn(
           "[fluid-wallet] request rejected: sender origin unavailable",
           message.request.method,
         );
       }
       void dispatch(message.request, origin, sender.tab?.id).then(
-        (response) => sendResponse(response),
-        (error: unknown) => sendResponse(dispatchFailed(message.request.id, error)),
+        (response) => {
+          console.debug(
+            `[fluid-wallet] ${method} answered in ${Date.now() - startedAt}ms`,
+            response.error ? `error ${response.error.code}: ${response.error.message}` : "ok",
+          );
+          sendResponse(response);
+        },
+        (error: unknown) => {
+          console.error(`[fluid-wallet] ${method} threw after ${Date.now() - startedAt}ms`, error);
+          sendResponse(dispatchFailed(message.request.id, error));
+        },
       );
       return true;
     }

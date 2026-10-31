@@ -19,6 +19,24 @@ export interface FluidBridgeDiagnostics {
   relayAnnouncedAfterMs?: number;
   requests: number;
   answers: number;
+  /** Requests still waiting: sent to the relay, no envelope came back. */
+  pending?: number;
+  /** Events pushed by the wallet (stream deltas). */
+  events?: number;
+  /** The most recent request, so a failure names the call that hung. */
+  last?: FluidBridgeAttempt;
+}
+
+/** One request, as the page-side script saw it. */
+export interface FluidBridgeAttempt {
+  method: string;
+  id: string;
+  /** Milliseconds between `postMessage` and the answer, absent while waiting. */
+  answeredAfterMs?: number;
+  /** Wire error code, when the answer was an error envelope. */
+  errorCode?: number;
+  /** Wire error message, when the answer was an error envelope. */
+  error?: string;
 }
 
 /**
