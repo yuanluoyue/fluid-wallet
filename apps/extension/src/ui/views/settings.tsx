@@ -81,7 +81,9 @@ export function SettingsView({
       link.download = result.filename;
       link.click();
       URL.revokeObjectURL(url);
-      toast.success(t("Settings.backup.exported", { count: result.providers, file: result.filename }));
+      toast.success(
+        t("Settings.backup.exported", { count: result.providers, file: result.filename }),
+      );
     } catch (cause) {
       setBackupError(cause instanceof Error ? cause.message : t("Settings.backup.exportFailed"));
     }
@@ -134,7 +136,11 @@ export function SettingsView({
       </Card>
 
       <Card title={t("Settings.budget.title")} description={t("Settings.budget.description")}>
-        <Field label={t("Settings.budget.label")} hint={t("Settings.budget.hint")} htmlFor="daily-limit">
+        <Field
+          label={t("Settings.budget.label")}
+          hint={t("Settings.budget.hint")}
+          htmlFor="daily-limit"
+        >
           <Input
             id="daily-limit"
             type="number"

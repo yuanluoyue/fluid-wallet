@@ -35,7 +35,11 @@ interface BridgeEnvelope {
 }
 
 function isEnvelope(value: unknown): value is BridgeEnvelope {
-  return typeof value === "object" && value !== null && (value as BridgeEnvelope).channel === FLUID_MESSAGE_CHANNEL;
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as BridgeEnvelope).channel === FLUID_MESSAGE_CHANNEL
+  );
 }
 
 /**

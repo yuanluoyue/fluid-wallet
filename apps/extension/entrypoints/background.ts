@@ -56,8 +56,7 @@ export default defineBackground(() => {
       }
       void handleUi(message).then(
         (result) => sendResponse({ result } satisfies UiEnvelope),
-        (error: unknown) =>
-          sendResponse({ error: describeError(error) } satisfies UiEnvelope),
+        (error: unknown) => sendResponse({ error: describeError(error) } satisfies UiEnvelope),
       );
       return true;
     }

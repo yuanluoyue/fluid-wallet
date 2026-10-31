@@ -37,7 +37,9 @@ export class PermissionStore {
     options: { ttlMs?: number | null } = {},
   ): FluidPermission {
     const capabilities = request.capabilities.filter(isGrantableCapability);
-    const rejected = request.capabilities.filter((capability) => !isGrantableCapability(capability));
+    const rejected = request.capabilities.filter(
+      (capability) => !isGrantableCapability(capability),
+    );
 
     if (rejected.length > 0) {
       throw new FluidError(
@@ -106,7 +108,10 @@ export class PermissionStore {
    * An app can narrow its own access without losing the rest of the grant;
    * when nothing is left the record is removed entirely.
    */
-  revokeCapabilities(origin: string, capabilities: readonly FluidCapability[]): FluidPermission | null {
+  revokeCapabilities(
+    origin: string,
+    capabilities: readonly FluidCapability[],
+  ): FluidPermission | null {
     const permission = this.get(origin);
     if (!permission) return null;
 
@@ -188,7 +193,11 @@ export class SessionRegistry {
     const session = this.#byId.get(id);
     if (!session) throw new FluidError(FluidErrorCode.SessionNotFound, "Unknown session.");
 
-    if (session.status === "active" && session.expiresAt !== undefined && session.expiresAt <= this.#now()) {
+    if (
+      session.status === "active" &&
+      session.expiresAt !== undefined &&
+      session.expiresAt <= this.#now()
+    ) {
       session.status = "expired";
     }
     if (session.status !== "active") {
@@ -259,7 +268,9 @@ export class RateLimiter {
       throw new FluidError(
         FluidErrorCode.RateLimited,
         `Rate limit of ${this.#limit} requests per ${this.#windowMs}ms exceeded.`,
-        { retryAfterMs: recent[0] === undefined ? this.#windowMs : recent[0] + this.#windowMs - now },
+        {
+          retryAfterMs: recent[0] === undefined ? this.#windowMs : recent[0] + this.#windowMs - now,
+        },
       );
     }
 

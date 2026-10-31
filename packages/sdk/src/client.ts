@@ -224,11 +224,9 @@ export class FluidClient {
     for (const timeoutMs of budgets) {
       const startedAt = Date.now();
       try {
-        const info = await this.#call<FluidWalletInfo>(
-          FluidMethod.WalletGetInfo,
-          undefined,
-          { timeoutMs },
-        );
+        const info = await this.#call<FluidWalletInfo>(FluidMethod.WalletGetInfo, undefined, {
+          timeoutMs,
+        });
         this.#recordAttempt({
           budgetMs: timeoutMs,
           elapsedMs: Date.now() - startedAt,
@@ -324,7 +322,11 @@ export class FluidClient {
     const permission = await this.#call<FluidPermission | null>(FluidMethod.WalletGetPermissions);
     this.#patch({
       permission,
-      authorization: permission ? (isPermissionExpired(permission) ? "expired" : "granted") : "unknown",
+      authorization: permission
+        ? isPermissionExpired(permission)
+          ? "expired"
+          : "granted"
+        : "unknown",
     });
     return permission;
   }
@@ -343,10 +345,7 @@ export class FluidClient {
   }
 
   async listModels(providerId?: string): Promise<FluidModel[]> {
-    return this.#call<FluidModel[]>(
-      FluidMethod.ModelList,
-      providerId ? { providerId } : undefined,
-    );
+    return this.#call<FluidModel[]>(FluidMethod.ModelList, providerId ? { providerId } : undefined);
   }
 
   /**
@@ -428,10 +427,7 @@ export class FluidClient {
     return this.#call<FluidConversationDetail>(FluidMethod.ConversationGet, { conversationId });
   }
 
-  async appendConversation(
-    conversationId: string,
-    messages: FluidMessage[],
-  ): Promise<void> {
+  async appendConversation(conversationId: string, messages: FluidMessage[]): Promise<void> {
     await this.#call(FluidMethod.ConversationAppend, { conversationId, messages });
   }
 

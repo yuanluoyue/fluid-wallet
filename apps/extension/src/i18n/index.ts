@@ -93,10 +93,7 @@ export function translate(
  * use. Plural runs first, because its body contains braces that the simple
  * substitution would otherwise eat. An unmatched template is returned intact.
  */
-export function formatMessage(
-  template: string,
-  values: Record<string, string | number>,
-): string {
+export function formatMessage(template: string, values: Record<string, string | number>): string {
   return formatPlural(template, values).replace(/\{(\w+)\}/g, (full, key: string) =>
     key in values ? String(values[key]) : full,
   );

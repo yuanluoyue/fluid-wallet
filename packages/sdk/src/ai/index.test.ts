@@ -25,9 +25,7 @@ async function readAll(stream: ReadableStream<UIMessageChunk>): Promise<UIMessag
 
 describe("toFluidMessages", () => {
   it("keeps only text parts", () => {
-    expect(toFluidMessages([userMessage])).toEqual([
-      { role: "user", content: "hello wallet" },
-    ]);
+    expect(toFluidMessages([userMessage])).toEqual([{ role: "user", content: "hello wallet" }]);
   });
 });
 
@@ -48,7 +46,10 @@ describe("FluidChatTransport", () => {
 
     const chunks = await readAll(stream);
     const text = chunks
-      .filter((chunk): chunk is Extract<UIMessageChunk, { type: "text-delta" }> => chunk.type === "text-delta")
+      .filter(
+        (chunk): chunk is Extract<UIMessageChunk, { type: "text-delta" }> =>
+          chunk.type === "text-delta",
+      )
       .map((chunk) => chunk.delta)
       .join("");
 

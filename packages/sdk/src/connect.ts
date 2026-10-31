@@ -60,8 +60,7 @@ export interface FluidHandle {
  */
 export async function connectFluid(options: ConnectFluidOptions = {}): Promise<FluidHandle> {
   const client =
-    options.client ??
-    new FluidClient({ appId: options.appId, appName: options.appName });
+    options.client ?? new FluidClient({ appId: options.appId, appName: options.appName });
 
   const info = await client.detect();
 
@@ -146,7 +145,12 @@ export async function connectFluid(options: ConnectFluidOptions = {}): Promise<F
     mode: "dev",
     providerId: options.providerId ?? DEFAULT_PROVIDER_ID,
     model: options.devModel ?? options.model,
-    createFetch: () => createDevFetch({ apiKey, baseUrl, ...(options.devFetch ? { fetchImpl: options.devFetch } : {}) }),
+    createFetch: () =>
+      createDevFetch({
+        apiKey,
+        baseUrl,
+        ...(options.devFetch ? { fetchImpl: options.devFetch } : {}),
+      }),
     disconnect: async () => undefined,
   };
 }

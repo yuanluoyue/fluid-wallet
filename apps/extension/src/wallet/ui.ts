@@ -2,7 +2,12 @@ import { FluidError, type FluidCapability } from "@fluid-wallet/protocol";
 import { browser } from "wxt/browser";
 
 import type { UiMessage } from "../internal";
-import { decideApproval, listPending, type ApprovalDecision, type PendingApproval } from "./approval";
+import {
+  decideApproval,
+  listPending,
+  type ApprovalDecision,
+  type PendingApproval,
+} from "./approval";
 import { exportBackup, importBackup } from "./backup";
 import { getDailyLimit, setDailyLimit, usageToday } from "./budget";
 import { db } from "./db";
@@ -16,7 +21,16 @@ import {
   setDefaultProvider,
   testProvider,
 } from "./providers";
-import { changePassword, getAutoLock, hasVault, isUnlocked, lock, setAutoLock, setupVault, unlock } from "./vault";
+import {
+  changePassword,
+  getAutoLock,
+  hasVault,
+  isUnlocked,
+  lock,
+  setAutoLock,
+  setupVault,
+  unlock,
+} from "./vault";
 
 export interface UiState {
   configured: boolean;
@@ -87,7 +101,6 @@ export function isExtensionPage(sender: { tab?: { url?: string }; url?: string }
   if (sender.tab?.url && !sender.tab.url.startsWith(base)) return false;
   return true;
 }
-
 
 export async function handleUi(message: UiMessage): Promise<unknown> {
   switch (message.type) {

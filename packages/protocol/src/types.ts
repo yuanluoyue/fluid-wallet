@@ -254,12 +254,7 @@ export function messageToText(message: FluidMessage): string {
 // ---------------------------------------------------------------------------
 
 export type FluidFinishReason =
-  | "stop"
-  | "length"
-  | "tool-calls"
-  | "content-filter"
-  | "cancelled"
-  | "error";
+  "stop" | "length" | "tool-calls" | "content-filter" | "cancelled" | "error";
 
 export interface FluidUsage {
   inputTokens: number;
@@ -267,11 +262,7 @@ export interface FluidUsage {
   totalTokens: number;
 }
 
-export type FluidToolChoice =
-  | "auto"
-  | "none"
-  | "required"
-  | { type: "tool"; name: string };
+export type FluidToolChoice = "auto" | "none" | "required" | { type: "tool"; name: string };
 
 export interface FluidInferenceParams {
   sessionId: string;
@@ -458,13 +449,13 @@ export interface FluidProxyErrorPayload {
 
 /** Every event the SDK understands, discriminated by `type`. */
 export type FluidStreamEvent =
-  | FluidEvent<FluidInferenceStartPayload> & { type: typeof FLUID_EVENTS.InferenceStart }
-  | FluidEvent<FluidInferenceDeltaPayload> & { type: typeof FLUID_EVENTS.InferenceDelta }
-  | FluidEvent<FluidInferenceToolCallPayload> & { type: typeof FLUID_EVENTS.InferenceToolCall }
-  | FluidEvent<FluidInferenceDonePayload> & { type: typeof FLUID_EVENTS.InferenceDone }
-  | FluidEvent<FluidInferenceErrorPayload> & { type: typeof FLUID_EVENTS.InferenceError }
-  | FluidEvent<FluidInferenceCancelledPayload> & { type: typeof FLUID_EVENTS.InferenceCancelled }
-  | FluidEvent<FluidProxyStartPayload> & { type: typeof FLUID_EVENTS.ProxyStart }
-  | FluidEvent<FluidProxyChunkPayload> & { type: typeof FLUID_EVENTS.ProxyChunk }
-  | FluidEvent<FluidProxyEndPayload> & { type: typeof FLUID_EVENTS.ProxyEnd }
-  | FluidEvent<FluidProxyErrorPayload> & { type: typeof FLUID_EVENTS.ProxyError };
+  | (FluidEvent<FluidInferenceStartPayload> & { type: typeof FLUID_EVENTS.InferenceStart })
+  | (FluidEvent<FluidInferenceDeltaPayload> & { type: typeof FLUID_EVENTS.InferenceDelta })
+  | (FluidEvent<FluidInferenceToolCallPayload> & { type: typeof FLUID_EVENTS.InferenceToolCall })
+  | (FluidEvent<FluidInferenceDonePayload> & { type: typeof FLUID_EVENTS.InferenceDone })
+  | (FluidEvent<FluidInferenceErrorPayload> & { type: typeof FLUID_EVENTS.InferenceError })
+  | (FluidEvent<FluidInferenceCancelledPayload> & { type: typeof FLUID_EVENTS.InferenceCancelled })
+  | (FluidEvent<FluidProxyStartPayload> & { type: typeof FLUID_EVENTS.ProxyStart })
+  | (FluidEvent<FluidProxyChunkPayload> & { type: typeof FLUID_EVENTS.ProxyChunk })
+  | (FluidEvent<FluidProxyEndPayload> & { type: typeof FLUID_EVENTS.ProxyEnd })
+  | (FluidEvent<FluidProxyErrorPayload> & { type: typeof FLUID_EVENTS.ProxyError });

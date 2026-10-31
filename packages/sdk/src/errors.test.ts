@@ -5,7 +5,9 @@ import { describeFluidError, needsUserAction } from "./errors";
 
 describe("describeFluidError", () => {
   it("turns a locked wallet into an actionable instruction", () => {
-    const issue = describeFluidError(new FluidError(FluidErrorCode.Locked, "The wallet is locked."));
+    const issue = describeFluidError(
+      new FluidError(FluidErrorCode.Locked, "The wallet is locked."),
+    );
 
     expect(issue).toMatchObject({ kind: "locked", action: "unlock" });
     expect(issue.title).toBeTruthy();
@@ -13,7 +15,9 @@ describe("describeFluidError", () => {
   });
 
   it("separates 'no grant' from 'provider failed'", () => {
-    expect(describeFluidError(new FluidError(FluidErrorCode.Unauthorized, "no grant"))).toMatchObject({
+    expect(
+      describeFluidError(new FluidError(FluidErrorCode.Unauthorized, "no grant")),
+    ).toMatchObject({
       kind: "not-connected",
       action: "connect",
     });
@@ -75,7 +79,13 @@ describe("describeFluidError", () => {
     const issue = describeFluidError(
       new FluidError(FluidErrorCode.NotInstalled, "worker never answered", {
         reason: "worker-silent",
-        diagnostics: { relay: true, relayAnnouncedAfterMs: 56, requests: 2, answers: 0, pending: 2 },
+        diagnostics: {
+          relay: true,
+          relayAnnouncedAfterMs: 56,
+          requests: 2,
+          answers: 0,
+          pending: 2,
+        },
         attempts: [
           { outcome: "timeout", elapsedMs: 2_001, budgetMs: 2_000 },
           { outcome: "timeout", elapsedMs: 10_002, budgetMs: 10_000 },
@@ -90,8 +100,9 @@ describe("describeFluidError", () => {
 
   it("omits the counter line when there is nothing to quote", () => {
     expect(
-      describeFluidError(new FluidError(FluidErrorCode.NotInstalled, "no bridge", { reason: "not-injected" }))
-        .evidence,
+      describeFluidError(
+        new FluidError(FluidErrorCode.NotInstalled, "no bridge", { reason: "not-injected" }),
+      ).evidence,
     ).toBeUndefined();
   });
 });

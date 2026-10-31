@@ -29,7 +29,9 @@ export function ActivityView() {
   return (
     <Card title={t("Activity.title")} description={t("Activity.description")}>
       {logs.length === 0 ? (
-        <p className="py-6 text-center text-[12.5px] text-muted-foreground">{t("Activity.empty")}</p>
+        <p className="py-6 text-center text-[12.5px] text-muted-foreground">
+          {t("Activity.empty")}
+        </p>
       ) : (
         <div className="-mx-1 overflow-x-auto">
           <table className="w-full border-collapse text-[12px]">

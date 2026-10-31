@@ -62,7 +62,10 @@ export function providerEndpointPath(baseUrl: string, requestPath: string): stri
   const effective = providerPath(baseUrl, requestPath);
   const query = effective.indexOf("?");
   const pathname = query === -1 ? effective : effective.slice(0, query);
-  return pathname.replace(/\/+$/, "").replace(/\/{2,}/g, "/").toLowerCase();
+  return pathname
+    .replace(/\/+$/, "")
+    .replace(/\/{2,}/g, "/")
+    .toLowerCase();
 }
 
 /**

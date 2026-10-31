@@ -67,9 +67,7 @@ export class FluidChatTransport implements ChatTransport<UIMessage> {
   async #ensureSession(): Promise<string> {
     if (this.#sessionId) return this.#sessionId;
 
-    const session = await this.#client.createSession(
-      this.#model ? { model: this.#model } : {},
-    );
+    const session = await this.#client.createSession(this.#model ? { model: this.#model } : {});
     this.#sessionId = session.id;
     return session.id;
   }

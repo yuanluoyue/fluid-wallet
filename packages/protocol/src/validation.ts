@@ -37,9 +37,7 @@ export const FLUID_LIMITS = {
   maxProxyPathChars: 512,
 } as const;
 
-export type FluidValidation<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: FluidError };
+export type FluidValidation<T> = { ok: true; value: T } | { ok: false; error: FluidError };
 
 function invalid(message: string, data?: unknown): { ok: false; error: FluidError } {
   return { ok: false, error: new FluidError(FluidErrorCode.InvalidParams, message, data) };

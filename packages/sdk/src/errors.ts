@@ -25,14 +25,7 @@ export type FluidIssueKind =
 
 /** What the person has to do. `none` means the failure is not theirs to fix. */
 export type FluidIssueAction =
-  | "install"
-  | "unlock"
-  | "connect"
-  | "approve"
-  | "wait"
-  | "fix-provider"
-  | "retry"
-  | "none";
+  "install" | "unlock" | "connect" | "approve" | "wait" | "fix-provider" | "retry" | "none";
 
 export interface FluidIssue {
   kind: FluidIssueKind;
@@ -112,7 +105,8 @@ export function describeFluidError(error: unknown): FluidIssue {
 
   const data = (error.data ?? {}) as { retryAfterMs?: number; reason?: string };
   const base = { code: error.code };
-  const withRetry = data.retryAfterMs === undefined ? base : { ...base, retryAfterMs: data.retryAfterMs };
+  const withRetry =
+    data.retryAfterMs === undefined ? base : { ...base, retryAfterMs: data.retryAfterMs };
 
   switch (error.code) {
     case FluidErrorCode.NotInstalled: {
@@ -162,7 +156,8 @@ export function describeFluidError(error: unknown): FluidIssue {
         kind: "locked",
         action: "unlock",
         title: "The wallet is locked",
-        detail: "Open the extension and unlock it with your password. Nothing was sent to the provider.",
+        detail:
+          "Open the extension and unlock it with your password. Nothing was sent to the provider.",
       };
 
     case FluidErrorCode.Unauthorized:
@@ -200,7 +195,8 @@ export function describeFluidError(error: unknown): FluidIssue {
         kind: "expired",
         action: "connect",
         title: "The session ended",
-        detail: "Sessions are short-lived on purpose. Start a new one and the request can go through.",
+        detail:
+          "Sessions are short-lived on purpose. Start a new one and the request can go through.",
       };
 
     case FluidErrorCode.ModelNotAllowed:

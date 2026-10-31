@@ -77,10 +77,7 @@ export function GrantView({ origin }: { origin: string }) {
       ) : null}
 
       <div className="flex flex-col gap-2">
-        <Button
-          onClick={() => void allow()}
-          disabled={status === "asking" || status === "granted"}
-        >
+        <Button onClick={() => void allow()} disabled={status === "asking" || status === "granted"}>
           {status === "granted"
             ? t("Grant.grantedButton")
             : status === "asking"

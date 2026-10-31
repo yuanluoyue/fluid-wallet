@@ -27,9 +27,9 @@ describe("PermissionStore", () => {
   it("refuses capabilities that must stay inside the wallet", () => {
     const store = new PermissionStore();
 
-    expect(() =>
-      store.grant("https://app.test", { capabilities: ["wallet:manage"] }),
-    ).toThrow(expect.objectContaining({ code: FluidErrorCode.PermissionDenied }));
+    expect(() => store.grant("https://app.test", { capabilities: ["wallet:manage"] })).toThrow(
+      expect.objectContaining({ code: FluidErrorCode.PermissionDenied }),
+    );
   });
 
   it("enforces the capability a method declares", () => {
@@ -67,9 +67,13 @@ describe("PermissionStore", () => {
 
   it("grants without an expiry when the user says always", () => {
     const store = new PermissionStore();
-    const permission = store.grant("https://app.test", { capabilities: ["inference:text"] }, {
-      ttlMs: null,
-    });
+    const permission = store.grant(
+      "https://app.test",
+      { capabilities: ["inference:text"] },
+      {
+        ttlMs: null,
+      },
+    );
 
     expect(permission.expiresAt).toBeUndefined();
   });

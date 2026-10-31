@@ -65,7 +65,11 @@ export function ImportView() {
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
         </Field>
-        <Field label={t("Import.passphrase")} hint={t("Import.passphraseHint")} htmlFor="import-passphrase">
+        <Field
+          label={t("Import.passphrase")}
+          hint={t("Import.passphraseHint")}
+          htmlFor="import-passphrase"
+        >
           <Input
             id="import-passphrase"
             type="password"

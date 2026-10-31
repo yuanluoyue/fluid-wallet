@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card as CardShell, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card as CardShell,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useI18n } from "../../i18n/react";
 import type { PendingApproval } from "../../wallet/approval";
 import { Screen, hostOf, send, useFormatters } from "../components";
@@ -136,7 +142,9 @@ export function ApprovalView({
                 ? ` · ${t("Approval.defaultModel", { model: request.context.defaultModel })}`
                 : ""}
             </p>
-            <p className="text-[11.5px] leading-snug text-muted-foreground">{t("Approval.billed")}</p>
+            <p className="text-[11.5px] leading-snug text-muted-foreground">
+              {t("Approval.billed")}
+            </p>
           </CardContent>
         </CardShell>
       ) : null}

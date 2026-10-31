@@ -20,7 +20,13 @@ function MinimalHeader() {
 }
 
 /** Shared shape of the two screens so they cannot drift apart visually. */
-function AuthForm({ children, onSubmit }: { children: ReactNode; onSubmit: (event: FormEvent) => void }) {
+function AuthForm({
+  children,
+  onSubmit,
+}: {
+  children: ReactNode;
+  onSubmit: (event: FormEvent) => void;
+}) {
   return (
     <form
       onSubmit={onSubmit}
@@ -60,11 +66,17 @@ export function Onboarding({ onDone }: { onDone: (state: UiState) => void }) {
       <MinimalHeader />
       <div className="flex flex-col gap-1.5">
         <h1 className="text-xl font-semibold tracking-tight">{t("Onboarding.title")}</h1>
-        <p className="text-[12.5px] leading-relaxed text-muted-foreground">{t("Onboarding.body")}</p>
+        <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+          {t("Onboarding.body")}
+        </p>
       </div>
 
       <AuthForm onSubmit={submit}>
-        <Field label={t("Onboarding.password")} hint={t("Onboarding.passwordHint")} htmlFor="setup-password">
+        <Field
+          label={t("Onboarding.password")}
+          hint={t("Onboarding.passwordHint")}
+          htmlFor="setup-password"
+        >
           <Input
             id="setup-password"
             type="password"

@@ -62,10 +62,15 @@ function withDeadline<T>(promise: Promise<T>, options: FluidRequestOptions): Pro
   return new Promise<T>((resolve, reject) => {
     // A zero deadline means "wait indefinitely"; only used by long-running
     // catalog operations such as a model listing that probes the provider.
-    const timer = timeoutMs > 0 ? setTimeout(() => {
-      cleanup();
-      reject(new FluidError(FluidErrorCode.Timeout, `Request timed out after ${timeoutMs}ms.`));
-    }, timeoutMs) : undefined;
+    const timer =
+      timeoutMs > 0
+        ? setTimeout(() => {
+            cleanup();
+            reject(
+              new FluidError(FluidErrorCode.Timeout, `Request timed out after ${timeoutMs}ms.`),
+            );
+          }, timeoutMs)
+        : undefined;
 
     const onAbort = (): void => {
       cleanup();

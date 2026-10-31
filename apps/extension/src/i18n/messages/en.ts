@@ -59,8 +59,7 @@ export const en = {
 
   Providers: {
     title: "Model providers",
-    description:
-      "Credentials are encrypted with your master password and stay on this device.",
+    description: "Credentials are encrypted with your master password and stay on this device.",
     empty: "No provider yet. Add your DeepSeek key to get started.",
     noModels: "no models",
     savedAt: "saved {when}",
@@ -91,7 +90,8 @@ export const en = {
     testFailed: "The provider did not answer.",
     fetch: "Fetch models",
     fetching: "Fetching…",
-    fetched: "Fetched {count, plural, =0 {no models} one {# model} other {# models}} from {host} in {ms} ms.",
+    fetched:
+      "Fetched {count, plural, =0 {no models} one {# model} other {# models}} from {host} in {ms} ms.",
     fetchEmpty: "{host} answered, but listed no models.",
     fetchFailed: "Could not read the model list from {host}.",
     fetchNeedsAccess: "The wallet has no access to {host} yet. Grant it first.",
@@ -109,8 +109,7 @@ export const en = {
 
   Connections: {
     title: "Connected apps",
-    description:
-      "Each origin gets its own grant. Revoking closes its sessions immediately.",
+    description: "Each origin gets its own grant. Revoking closes its sessions immediately.",
     empty: "No app has connected to this wallet yet.",
     revoke: "Revoke",
     revokeAll: "Revoke all {count}",
@@ -174,8 +173,7 @@ export const en = {
     },
     password: {
       title: "Master password",
-      description:
-        "Changing it rewraps the encryption key; stored API keys are not re-entered.",
+      description: "Changing it rewraps the encryption key; stored API keys are not re-entered.",
       current: "Current password",
       next: "New password",
       nextHint: "At least 8 characters.",

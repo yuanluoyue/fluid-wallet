@@ -8,12 +8,12 @@ browser-extension implementation, but nothing in the message format assumes one.
 
 ## 1. Roles
 
-| Role          | Runs in                              | Owns                                        |
-| ------------- | ------------------------------------ | ------------------------------------------- |
-| Application   | The page                             | UI, business state, tools, app context       |
-| SDK / bridge  | The page                             | Connection, correlation, event fan-out       |
-| Wallet        | Extension service worker, extension UI | Credentials, permissions, sessions, storage |
-| Model provider | Remote                              | Actual inference                             |
+| Role           | Runs in                                | Owns                                        |
+| -------------- | -------------------------------------- | ------------------------------------------- |
+| Application    | The page                               | UI, business state, tools, app context      |
+| SDK / bridge   | The page                               | Connection, correlation, event fan-out      |
+| Wallet         | Extension service worker, extension UI | Credentials, permissions, sessions, storage |
+| Model provider | Remote                                 | Actual inference                            |
 
 The page never talks to a provider directly and never sees a credential.
 
@@ -36,9 +36,23 @@ Requests and responses are JSON-RPC 2.0 shaped. Events are plain objects
 correlated by `requestId`.
 
 ```ts
-interface FluidRequest<T> { jsonrpc: "2.0"; id: string; method: string; params?: T }
-interface FluidResponse<T> { jsonrpc: "2.0"; id: string; result?: T; error?: { code: number; message: string; data?: unknown } }
-interface FluidEvent<T> { type: string; requestId?: string; payload: T }
+interface FluidRequest<T> {
+  jsonrpc: "2.0";
+  id: string;
+  method: string;
+  params?: T;
+}
+interface FluidResponse<T> {
+  jsonrpc: "2.0";
+  id: string;
+  result?: T;
+  error?: { code: number; message: string; data?: unknown };
+}
+interface FluidEvent<T> {
+  type: string;
+  requestId?: string;
+  payload: T;
+}
 ```
 
 Rules:
@@ -50,25 +64,25 @@ Rules:
 
 ## 4. Methods
 
-| Method                   | Capability             | Result                          |
-| ------------------------ | ---------------------- | ------------------------------- |
-| `wallet.getInfo`         | –                      | `FluidWalletInfo`               |
-| `wallet.connect`         | – (approval flow)      | `FluidPermission`               |
-| `wallet.disconnect`      | –                      | `{ ok: true }`                  |
-| `wallet.getPermissions`  | `wallet:read`          | `FluidPermission \| null`       |
-| `wallet.revoke`          | `wallet:read`          | `{ revoked: boolean }`          |
-| `provider.list`          | `models:list`          | `FluidProvider[]`               |
-| `model.list`             | `models:list`          | `FluidModel[]`                  |
-| `session.create`         | `inference:text`       | `FluidSession`                  |
-| `session.close`          | `inference:text`       | `{ ok: true }`                  |
-| `inference.create`       | `inference:text`       | `FluidInferenceResult`          |
-| `inference.cancel`       | any live grant         | `{ cancelled: boolean }`        |
-| `inference.proxy`        | `inference:proxy`      | `FluidProxyResponse`            |
-| `conversation.list`      | `conversation:read`    | `FluidPage<FluidConversation>`  |
-| `conversation.get`       | `conversation:read`    | `FluidConversationDetail`       |
-| `conversation.append`    | `conversation:write`   | `{ ok: true }`                  |
-| `usage.get`              | `activity:read`        | `FluidQuota`                    |
-| `activity.list`          | `activity:read`        | `FluidPage<FluidActivityEntry>` |
+| Method                  | Capability           | Result                          |
+| ----------------------- | -------------------- | ------------------------------- |
+| `wallet.getInfo`        | –                    | `FluidWalletInfo`               |
+| `wallet.connect`        | – (approval flow)    | `FluidPermission`               |
+| `wallet.disconnect`     | –                    | `{ ok: true }`                  |
+| `wallet.getPermissions` | `wallet:read`        | `FluidPermission \| null`       |
+| `wallet.revoke`         | `wallet:read`        | `{ revoked: boolean }`          |
+| `provider.list`         | `models:list`        | `FluidProvider[]`               |
+| `model.list`            | `models:list`        | `FluidModel[]`                  |
+| `session.create`        | `inference:text`     | `FluidSession`                  |
+| `session.close`         | `inference:text`     | `{ ok: true }`                  |
+| `inference.create`      | `inference:text`     | `FluidInferenceResult`          |
+| `inference.cancel`      | any live grant       | `{ cancelled: boolean }`        |
+| `inference.proxy`       | `inference:proxy`    | `FluidProxyResponse`            |
+| `conversation.list`     | `conversation:read`  | `FluidPage<FluidConversation>`  |
+| `conversation.get`      | `conversation:read`  | `FluidConversationDetail`       |
+| `conversation.append`   | `conversation:write` | `{ ok: true }`                  |
+| `usage.get`             | `activity:read`      | `FluidQuota`                    |
+| `activity.list`         | `activity:read`      | `FluidPage<FluidActivityEntry>` |
 
 `conversation.*`, `usage.*` and `activity.*` may stay unimplemented in a
 compatible wallet: the SDK degrades to a `MethodNotFound` error rather than
@@ -77,8 +91,8 @@ the counter instead of failing to start.
 
 ## 5. Raw requests
 
-`inference.create` asks the wallet to *shape* a request. `inference.proxy` asks
-it to *forward* one, which is what lets an app keep its provider's own SDK
+`inference.create` asks the wallet to _shape_ a request. `inference.proxy` asks
+it to _forward_ one, which is what lets an app keep its provider's own SDK
 (`openai`, `@ai-sdk/*`, anything that accepts a `fetch`).
 
 ```ts
@@ -86,9 +100,9 @@ interface FluidProxyParams {
   sessionId: string;
   providerId?: string;
   method?: "GET" | "POST";
-  path: string;                 // e.g. "/v1/chat/completions"
-  body?: string;                // serialised by the app
-  headers?: { accept?: string };  // the only header a page may set
+  path: string; // e.g. "/v1/chat/completions"
+  body?: string; // serialised by the app
+  headers?: { accept?: string }; // the only header a page may set
 }
 ```
 
@@ -103,7 +117,7 @@ Rules that a wallet **must** enforce:
 3. **The path is validated** — absolute, under the length limit, no `..`, no
    backslashes, no scheme, no leading `//`.
 4. **Provider statuses pass through unchanged.** A 401 must reach the caller as a
-   401 so its SDK raises the error type it expects. Only failures *before* the
+   401 so its SDK raises the error type it expects. Only failures _before_ the
    response head become protocol errors.
 5. **The body is opaque.** A wallet must not log it. It may still apply the
    grant's model allow-list when the body is JSON with a `model` field.
@@ -120,7 +134,7 @@ Rules that a wallet **must** enforce:
    | `GET`  | `/models`           |
 
    Anything else fails with `PermissionDenied` before a request leaves the
-   wallet. Matching happens on the *effective* path (after the base prefix is
+   wallet. Matching happens on the _effective_ path (after the base prefix is
    removed), is case-insensitive, ignores a trailing slash, and rejects `..`
    rather than normalising it — a chat client never produces a traversal path,
    so it is a signal, not a formatting quirk.
@@ -166,28 +180,28 @@ detect → connect → session.create → inference.create → session.close →
 
 ## 7. Errors
 
-| Code    | Name                  | Meaning                                     |
-| ------- | --------------------- | ------------------------------------------- |
-| -32600  | `InvalidRequest`      | Envelope is malformed                       |
-| -32601  | `MethodNotFound`      | Unknown or unimplemented method             |
-| -32602  | `InvalidParams`       | Params failed validation                    |
-| -32603  | `InternalError`       | Unexpected wallet failure                   |
-| 4100    | `NotInstalled`        | No wallet is reachable                      |
-| 4101    | `Locked`              | Wallet is locked                            |
-| 4102    | `Unauthorized`        | No active grant for this origin             |
-| 4103    | `PermissionDenied`    | Grant exists but not for this capability    |
-| 4104    | `SessionNotFound`     | Unknown session id                          |
-| 4105    | `SessionExpired`      | Session closed or timed out                 |
-| 4106    | `ModelNotAllowed`     | Model outside the granted scope             |
-| 4107    | `ProviderUnavailable` | Provider unreachable or 5xx                 |
-| 4108    | `OriginMismatch`      | Sender origin could not be verified         |
-| 4109    | `Rejected`            | The user declined                           |
-| 4200    | `RateLimited`         | Wallet-side rate limit hit                  |
-| 4201    | `BudgetExceeded`      | Configured spend cap hit                    |
-| 4202    | `InferenceFailed`     | Provider rejected or produced invalid data  |
-| 4203    | `InferenceCancelled`  | Cancelled by the app or the user            |
-| 4204    | `Timeout`             | No response in time                         |
-| 4205    | `PayloadTooLarge`     | Request exceeded a protocol limit           |
+| Code   | Name                  | Meaning                                    |
+| ------ | --------------------- | ------------------------------------------ |
+| -32600 | `InvalidRequest`      | Envelope is malformed                      |
+| -32601 | `MethodNotFound`      | Unknown or unimplemented method            |
+| -32602 | `InvalidParams`       | Params failed validation                   |
+| -32603 | `InternalError`       | Unexpected wallet failure                  |
+| 4100   | `NotInstalled`        | No wallet is reachable                     |
+| 4101   | `Locked`              | Wallet is locked                           |
+| 4102   | `Unauthorized`        | No active grant for this origin            |
+| 4103   | `PermissionDenied`    | Grant exists but not for this capability   |
+| 4104   | `SessionNotFound`     | Unknown session id                         |
+| 4105   | `SessionExpired`      | Session closed or timed out                |
+| 4106   | `ModelNotAllowed`     | Model outside the granted scope            |
+| 4107   | `ProviderUnavailable` | Provider unreachable or 5xx                |
+| 4108   | `OriginMismatch`      | Sender origin could not be verified        |
+| 4109   | `Rejected`            | The user declined                          |
+| 4200   | `RateLimited`         | Wallet-side rate limit hit                 |
+| 4201   | `BudgetExceeded`      | Configured spend cap hit                   |
+| 4202   | `InferenceFailed`     | Provider rejected or produced invalid data |
+| 4203   | `InferenceCancelled`  | Cancelled by the app or the user           |
+| 4204   | `Timeout`             | No response in time                        |
+| 4205   | `PayloadTooLarge`     | Request exceeded a protocol limit          |
 
 Codes are append-only. Reuse is a breaking change.
 

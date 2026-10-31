@@ -8,14 +8,14 @@ leak keys.
 
 In scope:
 
-| Threat                                        | Mitigation                                        |
-| --------------------------------------------- | ------------------------------------------------- |
+| Threat                                        | Mitigation                                                |
+| --------------------------------------------- | --------------------------------------------------------- |
 | Malicious page reads another site's history   | Origin-bound sessions and grants, enforced in the runtime |
-| Malicious page forges its origin              | Origin taken from the browser sender, never the payload |
-| Key extraction from extension storage at rest | AES-GCM with a PBKDF2-derived key, salt + IV per record |
-| Key leaking into logs, errors or exports      | No secret in logs/errors; exports strip credentials |
-| Unbounded spend by a page                     | Per-origin rate limits and optional budget caps    |
-| Replay after revoke                           | Revocation closes sessions before the next request |
+| Malicious page forges its origin              | Origin taken from the browser sender, never the payload   |
+| Key extraction from extension storage at rest | AES-GCM with a PBKDF2-derived key, salt + IV per record   |
+| Key leaking into logs, errors or exports      | No secret in logs/errors; exports strip credentials       |
+| Unbounded spend by a page                     | Per-origin rate limits and optional budget caps           |
+| Replay after revoke                           | Revocation closes sessions before the next request        |
 
 Out of scope for `0.1.0`:
 

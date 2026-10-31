@@ -180,7 +180,10 @@ export async function runProxy(input: RunProxyInput): Promise<FluidProxyResponse
         payload: { proxyId: requestId, bytes, truncated: true },
       });
       await chain;
-      throw new FluidError(FluidErrorCode.InferenceCancelled, "The provider request was cancelled.");
+      throw new FluidError(
+        FluidErrorCode.InferenceCancelled,
+        "The provider request was cancelled.",
+      );
     }
 
     const fluidError =

@@ -195,8 +195,7 @@ export function createFluidFetch(client: FluidClient, options: FluidFetchOptions
 }
 
 function readUrl(input: string | URL | Request): URL {
-  const raw =
-    typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  const raw = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
   try {
     return new URL(raw, "https://provider.invalid");
   } catch {

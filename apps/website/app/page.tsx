@@ -82,8 +82,13 @@ export default function HomePage() {
           <h2>Status</h2>
           <ul>
             <li>Wallet · encrypted vault, provider management, connect approval — working</li>
-            <li>Runtime · scoped permissions, sessions, streaming, cancellation, activity log — working</li>
-            <li>SDK · vanilla TypeScript client plus React hooks and an AI SDK transport — working</li>
+            <li>
+              Runtime · scoped permissions, sessions, streaming, cancellation, activity log —
+              working
+            </li>
+            <li>
+              SDK · vanilla TypeScript client plus React hooks and an AI SDK transport — working
+            </li>
             <li>Next · tool-call round trips, Firefox packaging, store release</li>
           </ul>
         </section>

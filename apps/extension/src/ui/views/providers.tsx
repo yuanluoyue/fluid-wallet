@@ -344,7 +344,12 @@ export function ProvidersView({ surface }: { surface: Surface }) {
 
       <ErrorText error={error} />
       {needGrant ? (
-        <Button variant="outline" size={actionSize} className="self-start" onClick={() => openGrantWindow(needGrant)}>
+        <Button
+          variant="outline"
+          size={actionSize}
+          className="self-start"
+          onClick={() => openGrantWindow(needGrant)}
+        >
           {t("Common.grantAccess")}
         </Button>
       ) : null}
@@ -360,7 +365,13 @@ export function ProvidersView({ surface }: { surface: Surface }) {
                     setPreset(key);
                     const chosen = PROVIDER_PRESETS.find((candidate) => candidate.key === key);
                     if (!chosen) {
-                      setDraft({ ...draft, name: "", baseUrl: "https://", models: "", defaultModel: "" });
+                      setDraft({
+                        ...draft,
+                        name: "",
+                        baseUrl: "https://",
+                        models: "",
+                        defaultModel: "",
+                      });
                       return;
                     }
                     // Switching preset changes who is being talked to, so the
@@ -399,7 +410,11 @@ export function ProvidersView({ surface }: { surface: Surface }) {
               />
             </Field>
 
-            <Field label={t("Providers.baseUrl")} hint={t("Providers.baseUrlHint")} htmlFor="provider-url">
+            <Field
+              label={t("Providers.baseUrl")}
+              hint={t("Providers.baseUrlHint")}
+              htmlFor="provider-url"
+            >
               <Input
                 id="provider-url"
                 value={draft.baseUrl}
@@ -407,7 +422,11 @@ export function ProvidersView({ surface }: { surface: Surface }) {
               />
             </Field>
 
-            <Field label={t("Providers.models")} hint={t("Providers.modelsHint")} htmlFor="provider-models">
+            <Field
+              label={t("Providers.models")}
+              hint={t("Providers.modelsHint")}
+              htmlFor="provider-models"
+            >
               <div className="flex flex-col gap-2">
                 <Input
                   id="provider-models"
@@ -470,7 +489,9 @@ export function ProvidersView({ surface }: { surface: Surface }) {
                             setDraft({
                               ...draft,
                               models: picked
-                                ? modelList(draft.models).filter((id) => id !== model).join(", ")
+                                ? modelList(draft.models)
+                                    .filter((id) => id !== model)
+                                    .join(", ")
                                 : mergeModels(draft.models, [model]),
                             })
                           }

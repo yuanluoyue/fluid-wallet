@@ -1,7 +1,13 @@
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 
-import { Card as CardShell, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card as CardShell,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { MessageKey } from "../i18n";
@@ -32,9 +38,7 @@ export function Field({
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
-      {hint ? (
-        <p className="text-[11.5px] leading-snug text-muted-foreground">{hint}</p>
-      ) : null}
+      {hint ? <p className="text-[11.5px] leading-snug text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }

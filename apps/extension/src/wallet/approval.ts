@@ -115,7 +115,15 @@ export function requestApproval(
       resolve("deny");
     }, APPROVAL_TIMEOUT_MS);
 
-    pending.set(id, { id, origin, request, context, createdAt: Date.now(), settle: resolve, timer });
+    pending.set(id, {
+      id,
+      origin,
+      request,
+      context,
+      createdAt: Date.now(),
+      settle: resolve,
+      timer,
+    });
   });
 
   byOrigin.set(origin, decision);
@@ -134,7 +142,9 @@ export function requestApproval(
  * for the same origin is focused instead.
  */
 export async function openSetupWindow(origin: string): Promise<void> {
-  const url = browser.runtime.getURL(`/options.html?view=setup&origin=${encodeURIComponent(origin)}`);
+  const url = browser.runtime.getURL(
+    `/options.html?view=setup&origin=${encodeURIComponent(origin)}`,
+  );
   try {
     const open = await findWindow(url);
     if (open !== undefined) {

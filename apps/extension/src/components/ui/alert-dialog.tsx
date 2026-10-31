@@ -62,7 +62,13 @@ function AlertDialogContent({
 }
 
 function AlertDialogHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return <div data-slot="alert-dialog-header" className={cn("flex flex-col gap-1.5", className)} {...props} />;
+  return (
+    <div
+      data-slot="alert-dialog-header"
+      className={cn("flex flex-col gap-1.5", className)}
+      {...props}
+    />
+  );
 }
 
 function AlertDialogFooter({ className, ...props }: React.ComponentProps<"div">) {

@@ -322,7 +322,8 @@ async function persistTurn(input: {
     id: crypto.randomUUID(),
     conversationId: conversationId as string,
     role: message.role,
-    content: typeof message.content === "string" ? message.content : JSON.stringify(message.content),
+    content:
+      typeof message.content === "string" ? message.content : JSON.stringify(message.content),
     toolCalls: message.toolCalls,
     createdAt: message.createdAt ?? now,
   }));

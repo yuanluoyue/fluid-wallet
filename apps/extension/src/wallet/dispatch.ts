@@ -65,10 +65,7 @@ async function hydrate(): Promise<void> {
   }
 }
 
-export async function grantPermission(
-  origin: string,
-  permission: FluidPermission,
-): Promise<void> {
+export async function grantPermission(origin: string, permission: FluidPermission): Promise<void> {
   permissions.restore(permission);
   const now = Date.now();
   await db().connections.put({
@@ -466,7 +463,8 @@ function looksImpersonating(appName: string | undefined, origin: string): boolea
   );
 }
 
-async function visibleProviders(permission: FluidPermission): Promise<FluidProvider[]> {  const providers = await listProviders();
+async function visibleProviders(permission: FluidPermission): Promise<FluidProvider[]> {
+  const providers = await listProviders();
   if (!permission.providers.length) return providers;
   return providers.filter((provider) => permission.providers.includes(provider.id));
 }
@@ -571,7 +569,8 @@ async function appendConversation(
       id: message.id ?? crypto.randomUUID(),
       conversationId,
       role: message.role,
-      content: typeof message.content === "string" ? message.content : JSON.stringify(message.content),
+      content:
+        typeof message.content === "string" ? message.content : JSON.stringify(message.content),
       toolCalls: message.toolCalls,
       createdAt: message.createdAt ?? now,
     })),

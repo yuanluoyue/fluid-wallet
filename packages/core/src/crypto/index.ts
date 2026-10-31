@@ -60,13 +60,9 @@ export async function deriveKey(
   salt: Uint8Array<ArrayBuffer>,
   iterations: number = DEFAULT_KDF_ITERATIONS,
 ): Promise<CryptoKey> {
-  const material = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(password),
-    "PBKDF2",
-    false,
-    ["deriveKey"],
-  );
+  const material = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, [
+    "deriveKey",
+  ]);
 
   return crypto.subtle.deriveKey(
     { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
@@ -85,10 +81,7 @@ export async function deriveKey(
  * instead of re-encrypting every credential the user ever saved.
  */
 export async function generateDataKey(): Promise<CryptoKey> {
-  return crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, [
-    "encrypt",
-    "decrypt",
-  ]);
+  return crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
 }
 
 export async function exportDataKey(key: CryptoKey): Promise<string> {
@@ -111,10 +104,7 @@ export async function wrapDataKey(
   return encryptString(kek, await exportDataKey(dataKey), kdf);
 }
 
-export async function unwrapDataKey(
-  kek: CryptoKey,
-  wrapped: EncryptedSecret,
-): Promise<CryptoKey> {
+export async function unwrapDataKey(kek: CryptoKey, wrapped: EncryptedSecret): Promise<CryptoKey> {
   return importDataKey(await decryptString(kek, wrapped));
 }
 

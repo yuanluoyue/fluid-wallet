@@ -16,8 +16,10 @@ export function createEventQueue<T>(): EventQueue<T> {
   const buffer: T[] = [];
   let closed = false;
   let failure: { error: unknown } | null = null;
-  let waiter: { resolve: (result: IteratorResult<T>) => void; reject: (error: unknown) => void } | null =
-    null;
+  let waiter: {
+    resolve: (result: IteratorResult<T>) => void;
+    reject: (error: unknown) => void;
+  } | null = null;
 
   const flush = (): void => {
     if (!waiter) return;

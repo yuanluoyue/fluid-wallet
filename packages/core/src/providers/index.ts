@@ -276,7 +276,11 @@ export function createOpenAICompatibleProvider(config: ProviderConfig): Provider
 
       for (const [index, raw] of (choice?.delta?.tool_calls ?? []).entries()) {
         const fn = raw.function as { name?: string; arguments?: string } | undefined;
-        const existing = toolCalls.get(index) ?? { id: String(raw.id ?? index), name: "", arguments: "" };
+        const existing = toolCalls.get(index) ?? {
+          id: String(raw.id ?? index),
+          name: "",
+          arguments: "",
+        };
         existing.name = fn?.name ?? existing.name;
         existing.arguments += fn?.arguments ?? "";
         toolCalls.set(index, existing);

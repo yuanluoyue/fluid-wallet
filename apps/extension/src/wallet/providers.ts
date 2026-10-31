@@ -73,7 +73,10 @@ export async function saveProvider(input: ProviderInput): Promise<ProviderRecord
 
   const secret = input.apiKey ? await sealString(input.apiKey.trim()) : existing?.secret;
   if (!secret) {
-    throw new FluidError(FluidErrorCode.InvalidParams, "An API key is required for a new provider.");
+    throw new FluidError(
+      FluidErrorCode.InvalidParams,
+      "An API key is required for a new provider.",
+    );
   }
 
   const record: ProviderRecord = {
@@ -135,7 +138,10 @@ export async function getProviderCredentials(providerId: string): Promise<Provid
     throw new FluidError(FluidErrorCode.ProviderUnavailable, `Unknown provider "${providerId}".`);
   }
   if (!record.secret) {
-    throw new FluidError(FluidErrorCode.ProviderUnavailable, `Provider "${providerId}" has no key.`);
+    throw new FluidError(
+      FluidErrorCode.ProviderUnavailable,
+      `Provider "${providerId}" has no key.`,
+    );
   }
 
   return {
@@ -184,8 +190,7 @@ export async function resolveProviderId(
     );
   }
 
-  const providerId =
-    requestedProviderId ?? (await getDefaultProviderId()) ?? allowed[0]?.id;
+  const providerId = requestedProviderId ?? (await getDefaultProviderId()) ?? allowed[0]?.id;
 
   if (!providerId || !allowed.some((record) => record.id === providerId)) {
     throw new FluidError(
@@ -301,7 +306,8 @@ async function hasHostAccess(origin: string): Promise<boolean> {
 
 function failure(status: number, detail?: string): ProbeError {
   const trimmed = detail?.slice(0, 300).trim() || undefined;
-  if (status === 401 || status === 403) return { ok: false, reason: "unauthorized", status, detail: trimmed };
+  if (status === 401 || status === 403)
+    return { ok: false, reason: "unauthorized", status, detail: trimmed };
   if (status === 404) return { ok: false, reason: "not-found", status, detail: trimmed };
   return { ok: false, reason: "http", status, detail: trimmed };
 }
@@ -310,10 +316,18 @@ function networkFailure(cause: unknown): ProbeError {
   if (cause instanceof Error && (cause.name === "TimeoutError" || cause.name === "AbortError")) {
     return { ok: false, reason: "timeout" };
   }
-  if (cause instanceof FluidError && typeof cause.code === "number" && cause.code === FluidErrorCode.Unauthorized) {
+  if (
+    cause instanceof FluidError &&
+    typeof cause.code === "number" &&
+    cause.code === FluidErrorCode.Unauthorized
+  ) {
     return { ok: false, reason: "unauthorized" };
   }
-  return { ok: false, reason: "network", detail: cause instanceof Error ? cause.message : undefined };
+  return {
+    ok: false,
+    reason: "network",
+    detail: cause instanceof Error ? cause.message : undefined,
+  };
 }
 
 /**
@@ -398,7 +412,9 @@ export async function listRemoteModels(input: ProbeInput): Promise<RemoteModels>
   const ids = (payload as { data?: Array<{ id?: unknown }> })?.data;
   if (!Array.isArray(ids)) return { ok: false, reason: "not-found", host };
 
-  const models = [...new Set(ids.map((entry) => entry?.id).filter((id): id is string => typeof id === "string"))].sort();
+  const models = [
+    ...new Set(ids.map((entry) => entry?.id).filter((id): id is string => typeof id === "string")),
+  ].sort();
 
   return { ok: true, host, models, latencyMs: Date.now() - started };
 }

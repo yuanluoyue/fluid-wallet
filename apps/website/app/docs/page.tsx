@@ -69,11 +69,11 @@ pnpm --filter @fluid-wallet/extension build
           <h2>2 · Set up the wallet</h2>
           <p>
             Open the wallet, choose a master password, then add a provider. The DeepSeek preset only
-            pre-fills the name and the base URL — any OpenAI-compatible endpoint works. It carries no
-            model list: press <strong>Fetch models</strong> to read the catalogue from the provider
-            itself, because a hardcoded list is wrong the week after it ships. The API key is
-            encrypted with AES-GCM under a key derived from your password (PBKDF2, 210k iterations)
-            and never leaves the extension.
+            pre-fills the name and the base URL — any OpenAI-compatible endpoint works. It carries
+            no model list: press <strong>Fetch models</strong> to read the catalogue from the
+            provider itself, because a hardcoded list is wrong the week after it ships. The API key
+            is encrypted with AES-GCM under a key derived from your password (PBKDF2, 210k
+            iterations) and never leaves the extension.
           </p>
           <p>
             Press <strong>Test</strong> to make one small request. A wrong key and a wrong base URL

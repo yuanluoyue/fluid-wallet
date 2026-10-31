@@ -98,10 +98,7 @@ export function App() {
   // knowing. Subscribing is what makes "Detect wallet" actually update the page
   // — including the retry a cold service worker needs.
   const [, setRevision] = useState(0);
-  useEffect(
-    () => client.subscribe(() => setRevision((revision) => revision + 1)),
-    [client],
-  );
+  useEffect(() => client.subscribe(() => setRevision((revision) => revision + 1)), [client]);
 
   useEffect(() => {
     // Detecting up front lets the page say "no wallet installed" before the
@@ -225,7 +222,8 @@ export function App() {
       setTranscript((previous) => {
         const copy = [...previous];
         const last = copy[copy.length - 1];
-        if (last?.role === "assistant") copy[copy.length - 1] = { ...last, content: last.content + chunk };
+        if (last?.role === "assistant")
+          copy[copy.length - 1] = { ...last, content: last.content + chunk };
         return copy;
       });
 
@@ -274,10 +272,12 @@ export function App() {
     if (!handle) return;
     try {
       const response = await handle.createFetch()(`${PROVIDER_URL}/models`, { method: "GET" });
-      setAdvanced((previous) => [
-        `GET /models → ${response.status} ${response.headers.get("content-type") ?? ""}`,
-        ...previous,
-      ].slice(0, 6));
+      setAdvanced((previous) =>
+        [
+          `GET /models → ${response.status} ${response.headers.get("content-type") ?? ""}`,
+          ...previous,
+        ].slice(0, 6),
+      );
     } catch (error) {
       setIssue(describeFluidError(error));
     }
@@ -322,8 +322,7 @@ export function App() {
 
       {available === "unavailable" ? (
         <p style={{ ...s.mono, color: "#8a8f99", marginTop: 10, lineHeight: 1.7 }}>
-          origin {window.location.origin} · window.fluid{" "}
-          {bridgePresent ? "present" : "undefined"}
+          origin {window.location.origin} · window.fluid {bridgePresent ? "present" : "undefined"}
           {diagnostics
             ? ` · relay ${diagnostics.relay ? `yes (${diagnostics.relayAnnouncedAfterMs ?? 0}ms)` : "never announced"} · requests ${diagnostics.requests} · answers ${diagnostics.answers}`
             : ""}
@@ -395,7 +394,12 @@ export function App() {
             <button style={s.button} onClick={() => void client.detect()} type="button">
               Detect wallet
             </button>
-            <button style={s.button} onClick={() => void diagnose()} disabled={probing} type="button">
+            <button
+              style={s.button}
+              onClick={() => void diagnose()}
+              disabled={probing}
+              type="button"
+            >
               {probing ? "Probing…" : "Diagnose"}
             </button>
           </div>

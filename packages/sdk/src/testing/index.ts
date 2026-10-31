@@ -57,10 +57,7 @@ export interface MockWalletOptions {
   now?: () => number;
 }
 
-export type MockReply =
-  | string
-  | string[]
-  | ((params: FluidInferenceParams) => string | string[]);
+export type MockReply = string | string[] | ((params: FluidInferenceParams) => string | string[]);
 
 export interface MockWalletState {
   permissions: Map<string, FluidPermission>;
@@ -133,10 +130,12 @@ export function createMockWallet(options: MockWalletOptions = {}): MockWallet {
   const now = options.now ?? (() => Date.now());
   const chunkDelayMs = options.chunkDelayMs ?? 0;
   const permissionMode = options.permissionMode ?? "auto";
-  const replyOption: MockReply = options.reply ?? ((params: FluidInferenceParams) => {
-    const last = params.messages.at(-1);
-    return `mock reply to: ${last ? messageToText(last) : ""}`;
-  });
+  const replyOption: MockReply =
+    options.reply ??
+    ((params: FluidInferenceParams) => {
+      const last = params.messages.at(-1);
+      return `mock reply to: ${last ? messageToText(last) : ""}`;
+    });
   const reply = (params: FluidInferenceParams): string | string[] =>
     typeof replyOption === "function" ? replyOption(params) : replyOption;
 

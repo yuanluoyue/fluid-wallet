@@ -5,19 +5,19 @@ optionally narrowed to providers and models, with an explicit expiry.
 
 ## 1. Capability model
 
-| Capability            | Grants                                        | Grantable to a page |
-| --------------------- | --------------------------------------------- | ------------------- |
-| `wallet:read`         | Read wallet info and the current grant        | yes                 |
-| `models:list`         | Enumerate providers and models in scope       | yes                 |
-| `inference:text`      | Create sessions and non-streamed inference    | yes                 |
-| `inference:stream`    | Receive streaming deltas                      | yes                 |
-| `inference:tools`     | Send tool definitions and tool results        | yes                 |
-| `inference:proxy`     | Send raw requests to a configured provider    | yes                 |
-| `conversation:read`   | Read conversations owned by this origin       | yes                 |
-| `conversation:write`  | Append messages to its own conversations      | yes                 |
-| `activity:read`       | Read call logs for this origin                | yes                 |
-| `wallet:manage`       | Change wallet settings                        | **no** — wallet UI only |
-| `provider:manage`     | Add, edit or remove credentials and endpoints | **no** — wallet UI only |
+| Capability           | Grants                                        | Grantable to a page     |
+| -------------------- | --------------------------------------------- | ----------------------- |
+| `wallet:read`        | Read wallet info and the current grant        | yes                     |
+| `models:list`        | Enumerate providers and models in scope       | yes                     |
+| `inference:text`     | Create sessions and non-streamed inference    | yes                     |
+| `inference:stream`   | Receive streaming deltas                      | yes                     |
+| `inference:tools`    | Send tool definitions and tool results        | yes                     |
+| `inference:proxy`    | Send raw requests to a configured provider    | yes                     |
+| `conversation:read`  | Read conversations owned by this origin       | yes                     |
+| `conversation:write` | Append messages to its own conversations      | yes                     |
+| `activity:read`      | Read call logs for this origin                | yes                     |
+| `wallet:manage`      | Change wallet settings                        | **no** — wallet UI only |
+| `provider:manage`    | Add, edit or remove credentials and endpoints | **no** — wallet UI only |
 
 `wallet:manage` and `provider:manage` are rejected at grant time with
 `PermissionDenied`, not silently dropped.
@@ -26,10 +26,10 @@ optionally narrowed to providers and models, with an explicit expiry.
 
 ```ts
 interface FluidPermission {
-  origin: string;         // resolved from the browser sender, never from the page
+  origin: string; // resolved from the browser sender, never from the page
   appId?: string;
   providers: string[];
-  models?: string[];      // omitted means "any model of the granted providers"
+  models?: string[]; // omitted means "any model of the granted providers"
   capabilities: FluidCapability[];
   grantedAt: number;
   expiresAt?: number;
@@ -106,16 +106,16 @@ default, because the wallet cannot inspect what an app sends:
 
 ## 8. Limits
 
-| Limit                          | Default  |
-| ------------------------------ | -------- |
-| Messages per request           | 256      |
-| Characters per message         | 100 000  |
-| Tools per request              | 64       |
-| Tool name length               | 64       |
-| Request payload                | 1 MB     |
-| Raw request path length        | 512      |
-| Requests per origin per minute | 60       |
-| Requests per origin per day    | 300      |
+| Limit                          | Default |
+| ------------------------------ | ------- |
+| Messages per request           | 256     |
+| Characters per message         | 100 000 |
+| Tools per request              | 64      |
+| Tool name length               | 64      |
+| Request payload                | 1 MB    |
+| Raw request path length        | 512     |
+| Requests per origin per minute | 60      |
+| Requests per origin per day    | 300     |
 
 Exceeding a limit yields `PayloadTooLarge`, `RateLimited` or `BudgetExceeded`;
 the wallet never truncates silently. The daily counter is configurable and
