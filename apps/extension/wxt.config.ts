@@ -15,6 +15,16 @@ export default defineConfig({
   manifest: {
     name: "Fluid Wallet",
     description: "Local-first LLM wallet for web AI applications.",
+    // Declared explicitly rather than left to discovery: WXT copies `public/`
+    // verbatim and does not infer these, and a wallet without an icon shows up
+    // as the generic grey puzzle piece in a toolbar the user has to click.
+    icons: {
+      16: "/icon/16.png",
+      32: "/icon/32.png",
+      48: "/icon/48.png",
+      96: "/icon/96.png",
+      128: "/icon/128.png",
+    },
     // `idle` is only used to notice the OS screen lock: a wallet that stays
     // unlocked while the user walks away is the classic local-attack window.
     permissions: ["storage", "idle"],

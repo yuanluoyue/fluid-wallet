@@ -54,6 +54,13 @@ export default function DocsPage() {
             The extension is loaded unpacked while it is in preview, which keeps it away from store
             review and lets you read the code you are running.
           </p>
+          <p>
+            If you only want to use it, take the zip from{" "}
+            <a href="https://github.com/yuanluoyue/fluid-wallet/releases/latest">Releases</a>, unzip
+            it somewhere permanent, and point <code>Load unpacked</code> at that folder. Don&apos;t
+            move the folder afterwards: an unpacked extension&apos;s ID comes from its path, so a
+            move gives you a different — and empty — wallet.
+          </p>
           <pre>
             <code>{`git clone https://github.com/yuanluoyue/fluid-wallet
 cd fluid-wallet

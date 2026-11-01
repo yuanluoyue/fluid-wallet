@@ -1,5 +1,7 @@
 # 流钥 · Fluid Wallet
 
+**English** · [简体中文](README.zh-CN.md)
+
 **Open, local-first LLM wallet and access protocol for web AI applications.**
 <sub>开源的、本地优先的 LLM 钱包与访问协议：网站用得上你的 key，却永远拿不到它。</sub>
 
@@ -18,8 +20,9 @@ for inference without ever touching them.
 > Approval is asked in the toolbar panel itself; a window is only the fallback
 > for browsers without `action.openPopup`. A connect request against a wallet
 > with no provider is refused with a window that leads straight to the provider
-> form. The panel is bilingual (English / 中文, switchable in the header). Store
-> packaging and tool-call round trips are next.
+> form. The panel is bilingual (English / 中文, switchable in the header). A
+> ready-to-load zip is attached to every release; store listings and tool-call
+> round trips are next.
 
 ## Principles
 
@@ -83,6 +86,41 @@ change is then a diff in this repo, not a version bump that has to be re-tested
 against six other screens. The palette in `src/styles.css` is the same one the
 hand-written stylesheet used, mapped onto shadcn's variable names, so the
 components look like this wallet instead of like the demo they ship with.
+
+## Install the extension
+
+No store listing yet, so the extension is installed from a zip attached to a
+release. This works in Chrome, Edge and Brave — same steps, different URL
+(`chrome://extensions`, `edge://extensions`, `brave://extensions`).
+
+1. Download `fluid-wallet-0.1.0-chrome.zip` from
+   [Releases](https://github.com/yuanluoyue/fluid-wallet/releases/latest).
+2. Unzip it into a folder **you will keep** — for example `~/Applications/fluid-wallet`.
+3. Open `chrome://extensions`, switch on **Developer mode**, click **Load unpacked**,
+   and select that folder (the one containing `manifest.json`, not its parent).
+4. Click the toolbar icon: set a master password, then add a provider and its API key.
+
+Two things worth knowing before you move in:
+
+- **Do not rename or move the folder afterwards.** An unpacked extension's ID is
+  derived from its path, so a moved folder is a _different_ extension with an
+  empty wallet. If you must move it, use the panel's encrypted backup export
+  first — the vault does not follow on its own.
+- **Updates are manual.** Download the new zip, replace the folder's contents,
+  and press ⟳ on the extension card. Your wallet survives that; replacing the
+  folder wholesale may not, depending on how your unzip tool writes it.
+
+| Channel                | State     | Install                                    |
+| ---------------------- | --------- | ------------------------------------------ |
+| GitHub release zip     | available | manual, `Load unpacked`                    |
+| Microsoft Edge Add-ons | planned   | free store, one click                      |
+| Chrome Web Store       | planned   | one-click, needs the $5 developer account  |
+| Firefox                | planned   | needs a separate `-b firefox` build target |
+
+The panel is the whole interface: lock state, providers, grants per site, the
+activity log and pending approvals all live there. The approval prompt opens in
+that same panel; a separate window appears only on browsers without
+`action.openPopup`.
 
 ## Getting started
 
@@ -310,6 +348,10 @@ Read [`specs/security.md`](specs/security.md) before contributing. The short
 version: no method returns credential material, origins come from the browser
 sender, decryption happens only in the trusted context, and logs never contain
 prompts, responses or keys.
+
+[`/privacy`](apps/website/app/privacy/page.tsx) states the same thing for users
+rather than contributors: what is stored, what leaves the device, and why each
+permission is requested.
 
 ## Contributing
 

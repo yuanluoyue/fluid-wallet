@@ -92,6 +92,13 @@ export default function HomePage() {
             <li>Next · tool-call round trips, Firefox packaging, store release</li>
           </ul>
         </section>
+
+        <footer className="foot">
+          <span>MIT · 0.1.0</span>
+          <a href="https://github.com/yuanluoyue/fluid-wallet">Source</a>
+          <a href="https://www.npmjs.com/package/@fluid-wallet/sdk">npm</a>
+          <a href="/privacy">Privacy</a>
+        </footer>
       </div>
     </main>
   );
