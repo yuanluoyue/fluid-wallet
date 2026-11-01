@@ -1,4 +1,4 @@
-import type { FluidModel } from "@fluid-wallet/protocol";
+import type { FluidModel, FluidWalletStatus } from "@fluid-wallet/protocol";
 import { FluidClient, type FluidClientState } from "../client";
 import {
   createContext,
@@ -72,9 +72,28 @@ export interface FluidWalletState {
   authorization: FluidClientState["authorization"];
   permission: FluidClientState["permission"];
   wallet: FluidClientState["wallet"];
+  /**
+   * Why the wallet is not usable, when it is old enough to say.
+   *
+   * `"uninitialized"` and `"locked"` both need a screen, but not the same one:
+   * one offers "create a password", the other "enter it". A wallet that predates
+   * `status` only ever reports `"locked"`.
+   */
+  status: FluidWalletStatus | undefined;
+  /** Shorthand for `status !== "ready"`, false while nothing is known. */
+  locked: boolean;
+  /**
+   * Brings the wallet window up, on the unlock screen when locked.
+   *
+   * Stable across renders, so it can be passed to a button directly.
+   */
+  openWallet: () => Promise<boolean>;
 }
 
-function selectWalletState(state: FluidClientState): FluidWalletState {
+/** The part the snapshot caches; `status`, `locked` and `openWallet` derive from it. */
+type WalletSnapshot = Omit<FluidWalletState, "status" | "locked" | "openWallet">;
+
+function selectWalletState(state: FluidClientState): WalletSnapshot {
   return {
     availability: state.availability,
     connection: state.connection,
@@ -84,7 +103,7 @@ function selectWalletState(state: FluidClientState): FluidWalletState {
   };
 }
 
-function walletStateEqual(left: FluidWalletState, right: FluidWalletState): boolean {
+function walletStateEqual(left: WalletSnapshot, right: WalletSnapshot): boolean {
   return (
     left.availability === right.availability &&
     left.connection === right.connection &&
@@ -128,10 +147,26 @@ function createSelector<T>(
 export function useFluidWallet(): FluidWalletState {
   const client = useFluidClient();
   const select = useMemo(() => createSelector(selectWalletState, walletStateEqual), []);
+  const openWallet = useCallback(() => client.openWallet(), [client]);
 
-  return useSyncExternalStore(
+  const state = useSyncExternalStore(
     useCallback((onChange: () => void) => client.subscribe(onChange), [client]),
     useCallback(() => select(client.state), [client, select]),
+  );
+
+  // Derived rather than selected: `wallet` is already compared by reference, so
+  // adding these to the selector would only add fields that cannot change on
+  // their own.
+  return useMemo(
+    () => ({
+      ...state,
+      status:
+        state.wallet?.status ??
+        (state.wallet ? (state.wallet.locked ? "locked" : "ready") : undefined),
+      locked: state.wallet?.locked ?? false,
+      openWallet,
+    }),
+    [state, openWallet],
   );
 }
 

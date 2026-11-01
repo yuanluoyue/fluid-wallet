@@ -172,6 +172,23 @@ describe("connectFluid", () => {
 
     await expect(connectFluid({ client })).rejects.toBeInstanceOf(FluidError);
   });
+
+  it("raises the unlock window on a locked wallet, and can be told not to", async () => {
+    // The one-call path should not leave someone staring at "the wallet is
+    // locked" with no idea where to type the password.
+    const { wallet, client } = setup({ locked: true });
+
+    await expect(connectFluid({ client })).rejects.toMatchObject({
+      code: FluidErrorCode.Locked,
+      data: { reason: "locked" },
+    });
+    expect(wallet.opens).toBe(1);
+
+    await expect(connectFluid({ client, openOnLocked: false })).rejects.toMatchObject({
+      code: FluidErrorCode.Locked,
+    });
+    expect(wallet.opens).toBe(1);
+  });
 });
 
 describe("createDevFetch", () => {

@@ -286,6 +286,10 @@ export function App() {
   const mode = handle?.mode;
   const available = client.state.availability;
   const locked = client.state.wallet?.locked ?? false;
+  // `status` splits the two cases `locked` cannot: a wallet nobody created yet
+  // and one that exists behind a password.
+  const walletStatus =
+    client.state.wallet?.status ?? (client.state.wallet ? (locked ? "locked" : "ready") : null);
   // The page cannot see the extension, only whether a script put a bridge on
   // `window` — and the bridge can say whether the content script behind it ever
   // announced itself. That one bit separates "nothing injected" from "the
@@ -305,7 +309,7 @@ export function App() {
 
       <div style={s.chips}>
         <span style={{ ...s.chip, background: available === "available" ? "#e7f5ec" : "#f3f1ec" }}>
-          wallet: {available === "available" ? (locked ? "locked" : "ready") : available}
+          wallet: {available === "available" ? (walletStatus ?? "unknown") : available}
         </span>
         <span style={{ ...s.chip, background: connected ? "#e7f5ec" : "#f3f1ec" }}>
           access: {connected ? "granted" : "none"}
@@ -345,6 +349,19 @@ export function App() {
         >
           <strong style={{ fontSize: 14 }}>{issue.title}</strong>
           <p style={{ ...s.muted, margin: "6px 0 0" }}>{issue.detail}</p>
+          {issue.action === "unlock" ? (
+            // The page knows the wallet is locked; this is the click that asks
+            // the extension to put the unlock screen in front of the person.
+            <button
+              type="button"
+              style={{ ...s.button, marginTop: 12 }}
+              onClick={() => {
+                void client.openWallet();
+              }}
+            >
+              打开钱包窗口
+            </button>
+          ) : null}
           <p style={{ ...s.mono, color: "#8a8f99", margin: "8px 0 0" }}>
             action: {issue.action}
             {issue.code ? ` · code ${issue.code}` : ""}

@@ -22,6 +22,15 @@ export interface ConnectFluidOptions {
   capabilities?: FluidCapability[];
   /** Shown in the approval window. */
   reason?: string;
+  /**
+   * Raise the wallet's window when it is locked, instead of only failing.
+   *
+   * Defaults to `true`, because this is the one-call path: an app that just
+   * wants a `fetch` should not have to build an unlock screen first. Apps that
+   * do render their own pass `false` and call `client.openWallet()` from their
+   * "Unlock" button — the state is already on the client.
+   */
+  openOnLocked?: boolean;
   /** Reuse a client, for apps that already render wallet state. */
   client?: FluidClient;
 
@@ -66,9 +75,17 @@ export async function connectFluid(options: ConnectFluidOptions = {}): Promise<F
 
   if (info) {
     if (info.locked) {
+      // `status` separates "no wallet yet" from "locked wallet", which the
+      // `locked` boolean alone cannot: the first needs a first-run screen, the
+      // second a password box.
+      const status = info.status ?? "locked";
+      if (options.openOnLocked !== false) await client.openWallet().catch(() => false);
       throw new FluidError(
         FluidErrorCode.Locked,
-        "Fluid Wallet is locked. Unlock it from the extension, then retry.",
+        status === "uninitialized"
+          ? "Fluid Wallet has not been set up yet. Create it in the window that just opened, then retry."
+          : "Fluid Wallet is locked. Unlock it in the window that just opened, then retry.",
+        { reason: status === "uninitialized" ? "not-setup" : "locked" },
       );
     }
 

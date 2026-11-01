@@ -14,6 +14,21 @@ describe("describeFluidError", () => {
     expect(needsUserAction(new FluidError(FluidErrorCode.Locked, "x"))).toBe(true);
   });
 
+  it("sends a wallet with no password anywhere but 'unlock it'", () => {
+    // Both states arrive as 4101; only one of them has a password field to
+    // type into, so the same instruction cannot serve both.
+    const notSetup = describeFluidError(
+      new FluidError(FluidErrorCode.Locked, "no wallet", { reason: "not-setup" }),
+    );
+    const locked = describeFluidError(
+      new FluidError(FluidErrorCode.Locked, "locked", { reason: "locked" }),
+    );
+
+    expect(notSetup.action).toBe("unlock");
+    expect(notSetup.detail).not.toBe(locked.detail);
+    expect(locked.title).toMatch(/locked/i);
+  });
+
   it("separates 'no grant' from 'provider failed'", () => {
     expect(
       describeFluidError(new FluidError(FluidErrorCode.Unauthorized, "no grant")),

@@ -237,4 +237,55 @@ describe("FluidClient under long sessions", () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(wallet.calls.some((call) => call.method === "inference.cancel")).toBe(true);
   });
+
+  it("reports a locked wallet as available-but-locked, not as missing", async () => {
+    // "No wallet" and "a wallet behind a password" used to arrive as the same
+    // thing, so a page offered to install an extension that was already there.
+    const { client } = setup({ locked: true });
+    const info = await client.detect();
+
+    expect(info?.status).toBe("locked");
+    expect(client.locked).toBe(true);
+    expect(client.state.availability).toBe("available");
+  });
+
+  it("raises the wallet window, and stays usable on a wallet that cannot", async () => {
+    const { client, wallet } = setup();
+
+    expect(await client.openWallet()).toBe(true);
+    expect(wallet.opens).toBe(1);
+    expect(wallet.calls.at(-1)?.method).toBe("wallet.open");
+
+    // A wallet older than `wallet.open` must make the button look unsupported,
+    // not broken: this is the difference between "upgrade the extension" and
+    // "something is wrong".
+    wallet.request = async (request) => ({
+      jsonrpc: "2.0",
+      id: request.id,
+      error: { code: FluidErrorCode.MethodNotFound, message: "Unknown method." },
+    });
+    expect(await client.openWallet()).toBe(false);
+  });
+
+  it("learns the wallet locked itself from the refusal alone", async () => {
+    // Auto-lock happens between two calls: the page never asked for a fresh
+    // `getInfo`, so the 4101 is the only evidence a badge has to work with.
+    const { client, wallet } = setup();
+    await client.detect();
+    expect(client.locked).toBe(false);
+
+    wallet.request = async (request) => ({
+      jsonrpc: "2.0",
+      id: request.id,
+      error: {
+        code: FluidErrorCode.Locked,
+        message: "Fluid Wallet is locked.",
+        data: { reason: "locked" },
+      },
+    });
+
+    await expect(client.usage()).rejects.toMatchObject({ code: FluidErrorCode.Locked });
+    expect(client.locked).toBe(true);
+    expect(client.state.wallet?.status).toBe("locked");
+  });
 });

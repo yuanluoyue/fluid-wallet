@@ -67,6 +67,7 @@ Rules:
 | Method                  | Capability           | Result                          |
 | ----------------------- | -------------------- | ------------------------------- |
 | `wallet.getInfo`        | –                    | `FluidWalletInfo`               |
+| `wallet.open`           | –                    | `{ opened: boolean }`           |
 | `wallet.connect`        | – (approval flow)    | `FluidPermission`               |
 | `wallet.disconnect`     | –                    | `{ ok: true }`                  |
 | `wallet.getPermissions` | `wallet:read`        | `FluidPermission \| null`       |
@@ -88,6 +89,36 @@ Rules:
 compatible wallet: the SDK degrades to a `MethodNotFound` error rather than
 assuming support. `client.usage()` returns `null` in that case, so a UI can hide
 the counter instead of failing to start.
+
+### Wallet state
+
+`wallet.getInfo` answers even when the wallet cannot serve anything, which is
+the point: a page can ask before it tries, instead of learning from a failure.
+
+```ts
+interface FluidWalletInfo {
+  locked: boolean;
+  status?: "uninitialized" | "locked" | "ready";
+}
+```
+
+`locked` is the compatibility answer. `status` is the one a UI can build on,
+because "nobody has created a wallet yet" and "a wallet sits behind a password"
+lead to different screens. A wallet that predates `status` omits it; a client
+must then read `locked ? "locked" : "ready"` and lose only that distinction.
+
+Anything that decrypts a credential — `wallet.connect`, `inference.create`,
+`inference.proxy` — fails with `4101 Locked` while the wallet is sealed, and
+carries `data.reason` of `"locked"` or `"not-setup"`. Raising the wallet's own
+window on the screen that fixes it is a courtesy, not part of the contract: a
+page has to work whether or not that window appears.
+
+`wallet.open` is how a page asks for that surface itself, so it can put a real
+button on screen instead of sending someone hunting for a toolbar icon. It
+brings the wallet window to the front — the unlock screen when locked — and
+reports `opened: false` when it could not, or when the origin asked too recently
+to be worth another window. It is public, because it reveals nothing a click on
+that icon would not.
 
 ## 5. Raw requests
 

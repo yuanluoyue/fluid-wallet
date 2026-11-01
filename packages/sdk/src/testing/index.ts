@@ -73,6 +73,8 @@ export interface MockWallet extends FluidBridge {
   readonly state: MockWalletState;
   /** Every request the wallet received, in order — useful for assertions. */
   readonly calls: FluidRequest[];
+  /** How many `wallet.open` calls arrived, so a page's Unlock button is testable. */
+  readonly opens: number;
   emit(event: FluidEvent): void;
   grant(permission: FluidPermission): void;
   dispose(): void;
@@ -154,6 +156,7 @@ export function createMockWallet(options: MockWalletOptions = {}): MockWallet {
 
   const calls: FluidRequest[] = [];
   let sessionCounter = 0;
+  let openCount = 0;
 
   const emit = (event: FluidEvent): void => {
     for (const handler of handlers) handler(event);
@@ -191,6 +194,7 @@ export function createMockWallet(options: MockWalletOptions = {}): MockWallet {
       "inference:proxy",
     ],
     locked: options.locked ?? false,
+    status: options.locked ? "locked" : "ready",
     defaultModel: "deepseek-chat",
   });
 
@@ -327,6 +331,10 @@ export function createMockWallet(options: MockWalletOptions = {}): MockWallet {
       case FluidMethod.WalletGetInfo:
         return { result: describeWallet() };
 
+      case FluidMethod.WalletOpen:
+        openCount += 1;
+        return { result: { opened: true } };
+
       case FluidMethod.WalletConnect:
         return { result: connect(params as unknown as FluidPermissionRequest) };
 
@@ -411,6 +419,10 @@ export function createMockWallet(options: MockWalletOptions = {}): MockWallet {
     walletVersion: options.walletVersion ?? "0.0.0-mock",
     state,
     calls,
+
+    get opens(): number {
+      return openCount;
+    },
 
     async request(request: FluidRequest): Promise<FluidResponse> {
       calls.push(request);

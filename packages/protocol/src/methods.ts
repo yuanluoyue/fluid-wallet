@@ -22,6 +22,12 @@ import type {
 /** Param shape for every request method. `undefined` means params may be omitted. */
 export interface FluidMethodParams {
   "wallet.getInfo": undefined;
+  /**
+   * Brings the wallet's own UI to the front — the unlock screen when it is
+   * locked, the wallet itself when it is not. No parameters: the wallet decides
+   * what to show, so a page cannot ask for a screen it has no business showing.
+   */
+  "wallet.open": undefined;
   "wallet.connect": FluidPermissionRequest;
   "wallet.disconnect": undefined;
   "wallet.getPermissions": undefined;
@@ -49,6 +55,8 @@ export interface FluidMethodParams {
 /** Result shape for every request method. */
 export interface FluidMethodResults {
   "wallet.getInfo": FluidWalletInfo;
+  /** `opened: false` means the surface was throttled or could not be opened. */
+  "wallet.open": { opened: boolean };
   "wallet.connect": FluidPermission;
   "wallet.disconnect": { ok: true };
   "wallet.getPermissions": FluidPermission | null;
@@ -82,6 +90,7 @@ export type FluidResultOf<M extends FluidMethodName> = FluidMethodResults[M];
 /** Canonical method names, so call sites never string-match by hand. */
 export const FluidMethod = {
   WalletGetInfo: "wallet.getInfo",
+  WalletOpen: "wallet.open",
   WalletConnect: "wallet.connect",
   WalletDisconnect: "wallet.disconnect",
   WalletGetPermissions: "wallet.getPermissions",
@@ -110,10 +119,12 @@ export function isFluidMethodName(value: string): value is FluidMethodName {
  * Capability a method requires.
  *
  * `null` means the method is not gated by a standing permission: `wallet.connect`
- * runs its own approval flow, and `wallet.getInfo` is public by design.
+ * runs its own approval flow, `wallet.open` only raises a surface the person can
+ * already open from the toolbar, and `wallet.getInfo` is public by design.
  */
 export const FLUID_METHOD_CAPABILITIES: Record<FluidMethodName, FluidCapability | null> = {
   "wallet.getInfo": null,
+  "wallet.open": null,
   "wallet.connect": null,
   "wallet.disconnect": null,
   "wallet.getPermissions": "wallet:read",

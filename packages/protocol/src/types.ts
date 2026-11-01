@@ -112,6 +112,22 @@ export function isPermissionExpired(permission: FluidPermission, now = Date.now(
 // Wallet
 // ---------------------------------------------------------------------------
 
+/**
+ * What a page can do with the wallet right now.
+ *
+ * `locked` alone was not enough to build a UI from: it is true both for a
+ * wallet the person has not created yet and for one they created and then left
+ * locked, and those need different buttons. The boolean stays for older
+ * wallets and for the common "is it usable" check.
+ */
+export type FluidWalletStatus =
+  /** No wallet exists yet: it has to be created before it can hold a key. */
+  | "uninitialized"
+  /** A wallet exists but is sealed; it needs the password before it can infer. */
+  | "locked"
+  /** Unlocked and ready. */
+  | "ready";
+
 export interface FluidWalletInfo {
   name: string;
   walletVersion: string;
@@ -119,6 +135,14 @@ export interface FluidWalletInfo {
   capabilities: FluidCapability[];
   /** A locked wallet can describe itself but cannot infer or reveal secrets. */
   locked: boolean;
+  /**
+   * Why the wallet is (not) usable, when the wallet is new enough to say.
+   *
+   * Optional so a page keeps working against a wallet that predates it: treat
+   * `undefined` as `locked ? "locked" : "ready"` and lose only the distinction
+   * between "no wallet yet" and "locked".
+   */
+  status?: FluidWalletStatus;
   defaultModel?: string;
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "@fluid-wallet/sdk",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "description": "Browser SDK for connecting web apps to a Fluid Wallet: auth, sessions, streaming inference and tools, plus React and Vercel AI SDK bindings.",
   "keywords": [

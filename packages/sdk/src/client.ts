@@ -162,6 +162,39 @@ export class FluidClient {
   }
 
   /**
+   * Whether the wallet needs a password before it can serve anything.
+   *
+   * Reads the last `wallet.getInfo`, and the last refusal: a wallet that locked
+   * itself mid-conversation says so through a `Locked` error, which flags this
+   * without a second round trip. `false` when nothing is known yet — "unknown"
+   * is `availability`, not a lock.
+   */
+  get locked(): boolean {
+    return this.#state.wallet?.locked ?? false;
+  }
+
+  /**
+   * Brings the wallet's own window to the front, on the unlock screen if it is
+   * locked.
+   *
+   * This is the call behind an "Unlock" button: the page knows the state from
+   * `wallet.getInfo` and asks for the surface when the person clicks, rather
+   * than having a password box appear out of nowhere. Returns false when the
+   * wallet window could not be opened, or when the origin asked too recently.
+   */
+  async openWallet(): Promise<boolean> {
+    try {
+      const { opened } = await this.#call<{ opened: boolean }>(FluidMethod.WalletOpen);
+      return opened;
+    } catch (error) {
+      // A wallet that predates `wallet.open` cannot raise itself. Reporting that
+      // as a failure would make a button look broken instead of unsupported.
+      if (FluidError.is(error, FluidErrorCode.MethodNotFound)) return false;
+      throw toFluidError(error);
+    }
+  }
+
+  /**
    * What the page-side script says about its own pipe, when it can say anything.
    *
    * A missing bridge is not the same as a bridge whose relay is gone: the first
@@ -484,8 +517,29 @@ export class FluidClient {
     } catch (error) {
       const fluidError = toFluidError(error);
       this.#patch({ lastError: fluidError });
+      this.#reflectLock(fluidError);
       throw fluidError;
     }
+  }
+
+  /**
+   * Turns a `Locked` refusal into state a UI can render.
+   *
+   * The wallet knows it is locked; the page only ever sees the error. Without
+   * this, a badge would keep saying "ready" until someone called `detect()`
+   * again — through an auto-lock the page has no way to observe.
+   */
+  #reflectLock(error: FluidError): void {
+    const wallet = this.#state.wallet;
+    if (error.code !== FluidErrorCode.Locked || !wallet || wallet.locked) return;
+    const reason = (error.data as { reason?: string } | undefined)?.reason;
+    this.#patch({
+      wallet: {
+        ...wallet,
+        locked: true,
+        status: reason === "not-setup" ? "uninitialized" : "locked",
+      },
+    });
   }
 
   async #runInference(

@@ -136,19 +136,45 @@ per-request inference state apart on purpose — collapsing them into one
 `isConnected` boolean is how an app ends up showing "connected" while every call
 fails.
 
-| Method                                                               | Purpose                                      |
-| -------------------------------------------------------------------- | -------------------------------------------- |
-| `detect()` / `detectAttempts`                                        | Is a wallet there at all, and what happened  |
-| `connect()` / `disconnect()` / `revoke()`                            | The permission lifecycle                     |
-| `getPermissions()`                                                   | What this origin may do right now            |
-| `listProviders()` / `listModels(id?)`                                | What is configured, without a session        |
-| `createSession()` / `closeSession(id?)`                              | Sessions bound to a grant                    |
-| `createInference()` / `cancelInference()`                            | The structured path                          |
-| `usage()`                                                            | Today's request budget, or `null`            |
-| `listConversations()` / `getConversation()` / `appendConversation()` | Stored history                               |
-| `subscribe()` / `onEvent()`                                          | State snapshots and raw protocol events      |
-| `call(method, params)`                                               | Typed escape hatch for anything unwrapped    |
-| `dispose()`                                                          | Release the pipes; a disposed client is dead |
+### A locked wallet is a state, not a surprise
+
+`wallet.getInfo` answers even when the wallet cannot serve anything, so the page
+knows before it asks:
+
+```ts
+const info = await client.detect();
+// info.status: "ready" | "locked" | "uninitialized"   (optional on old wallets)
+// client.locked is the same answer as a boolean
+
+if (info?.locked) {
+  await client.openWallet(); // brings the unlock screen to the front
+}
+```
+
+`client.openWallet()` is the call behind an "Unlock" button: it raises the
+wallet's own window, which is the unlock screen while the wallet is sealed. The
+state is also refreshed by the refusal itself — a `4101 Locked` from any call
+flips `client.locked` to `true`, so a badge turns without polling.
+
+`connectFluid()` does this for you: on a locked wallet it opens the window and
+throws `Locked` with `data.reason` of `"locked"` or `"not-setup"`, which
+`describeFluidError()` turns into the right instruction. Pass
+`connectFluid({ openOnLocked: false })` if the app renders its own screen.
+
+| Method                                                               | Purpose                                         |
+| -------------------------------------------------------------------- | ----------------------------------------------- |
+| `detect()` / `detectAttempts`                                        | Is a wallet there at all, and what happened     |
+| `openWallet()` / `locked`                                            | Raise the wallet window; is it locked right now |
+| `connect()` / `disconnect()` / `revoke()`                            | The permission lifecycle                        |
+| `getPermissions()`                                                   | What this origin may do right now               |
+| `listProviders()` / `listModels(id?)`                                | What is configured, without a session           |
+| `createSession()` / `closeSession(id?)`                              | Sessions bound to a grant                       |
+| `createInference()` / `cancelInference()`                            | The structured path                             |
+| `usage()`                                                            | Today's request budget, or `null`               |
+| `listConversations()` / `getConversation()` / `appendConversation()` | Stored history                                  |
+| `subscribe()` / `onEvent()`                                          | State snapshots and raw protocol events         |
+| `call(method, params)`                                               | Typed escape hatch for anything unwrapped       |
+| `dispose()`                                                          | Release the pipes; a disposed client is dead    |
 
 ## React
 
@@ -164,10 +190,13 @@ export function App() {
 }
 
 function Chat() {
-  const { availability, connection, authorization } = useFluidWallet();
+  const { availability, connection, authorization, status, openWallet } = useFluidWallet();
   const { models, loading, refresh } = useFluidModels();
 
   if (availability === "unavailable") return <InstallPrompt />;
+  // "locked" and "uninitialized" both need a screen, not a retry.
+  if (status && status !== "ready")
+    return <button onClick={openWallet}>Unlock Fluid Wallet</button>;
   if (authorization !== "granted") return <ConnectButton />;
   // connection === "connected" here
 }

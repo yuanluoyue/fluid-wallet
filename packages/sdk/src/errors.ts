@@ -151,13 +151,27 @@ export function describeFluidError(error: unknown): FluidIssue {
     }
 
     case FluidErrorCode.Locked:
+      // Two states reach this code and they need different screens: a wallet
+      // that was never created, and one that exists but is sealed. Telling
+      // someone to "unlock" a wallet that has no password yet sends them
+      // looking for a field that is not there.
+      if (data.reason === "not-setup") {
+        return {
+          ...base,
+          kind: "locked",
+          action: "unlock",
+          title: "The wallet has no password yet",
+          detail:
+            "Fluid Wallet has to be created once before it can hold a key. The window that just opened walks through that, then connect again.",
+        };
+      }
       return {
         ...base,
         kind: "locked",
         action: "unlock",
         title: "The wallet is locked",
         detail:
-          "Open the extension and unlock it with your password. Nothing was sent to the provider.",
+          "Unlock it in the wallet window, which opens on the unlock screen, then retry. Nothing was sent to the provider.",
       };
 
     case FluidErrorCode.Unauthorized:

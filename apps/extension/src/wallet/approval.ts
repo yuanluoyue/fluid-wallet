@@ -139,18 +139,15 @@ export function requestApproval(
  * the window explains why, with the one screen that fixes it one click away.
  *
  * A page that retries in a loop must not stack windows, so an already-open one
- * for the same origin is focused instead.
+ * is focused instead.
  */
 export async function openSetupWindow(origin: string): Promise<void> {
   const url = browser.runtime.getURL(
     `/options.html?view=setup&origin=${encodeURIComponent(origin)}`,
   );
   try {
-    const open = await findWindow(url);
-    if (open !== undefined) {
-      await browser.windows.update(open, { focused: true });
-      return;
-    }
+    const open = await findWalletWindow();
+    if (open !== undefined && (await focusWindow(open))) return;
     await browser.windows.create({ url, type: "popup", width: 460, height: 400 });
   } catch {
     // The refusal is what the page needs. A window that could not open makes it
@@ -158,13 +155,86 @@ export async function openSetupWindow(origin: string): Promise<void> {
   }
 }
 
-/** Window already showing `url`, if any. */
-async function findWindow(url: string): Promise<number | undefined> {
+/** How long one origin has to wait before it can raise the wallet again. */
+const OPEN_THROTTLE_MS = 15_000;
+
+/**
+ * Floor between two window creations, whatever the origin.
+ *
+ * The per-origin throttle stops one page from looping; this stops a page made
+ * of many frames — each with its own origin — from doing the same thing one
+ * origin at a time.
+ */
+const OPEN_FLOOR_MS = 3_000;
+let lastCreatedAt = 0;
+
+/** Bounded so a page that rotates origins cannot grow it without limit. */
+const openedAt = new Map<string, number>();
+
+/**
+ * Brings the wallet's own UI to the front, unlocking it if it is locked.
+ *
+ * `wallet.open` is the page-side answer to "the wallet is locked": a page that
+ * sees `status: "locked"` can put a real button on screen instead of telling
+ * someone to go hunting for a toolbar icon. The extension opens the same
+ * surface it would for a connect request, so the window is the unlock screen
+ * when the wallet is sealed and the wallet itself when it is not.
+ *
+ * Returns false when the window could not be opened, or when this origin asked
+ * too recently and no window is up — a retry loop must not fight the person
+ * closing it.
+ */
+export async function openWalletWindow(origin: string): Promise<boolean> {
+  try {
+    const open = await findWalletWindow();
+    if (open !== undefined && (await focusWindow(open))) return true;
+
+    const now = Date.now();
+    const last = openedAt.get(origin);
+    if (last !== undefined && now - last < OPEN_THROTTLE_MS) return false;
+    if (now - lastCreatedAt < OPEN_FLOOR_MS) return false;
+
+    if (openedAt.size > 64) openedAt.clear();
+    openedAt.set(origin, now);
+    lastCreatedAt = now;
+
+    await browser.windows.create({
+      url: browser.runtime.getURL(`/options.html?origin=${encodeURIComponent(origin)}`),
+      type: "popup",
+      width: 460,
+      height: 640,
+    });
+    return true;
+  } catch (error) {
+    console.warn("[fluid-wallet] could not open the wallet window", error);
+    return false;
+  }
+}
+
+/**
+ * Any window already showing the wallet, whatever screen it is on.
+ *
+ * One wallet has one surface: focusing the one that is up is what keeps a page
+ * that asks twice from producing two password boxes.
+ */
+async function findWalletWindow(): Promise<number | undefined> {
+  const base = browser.runtime.getURL("/options.html");
   const windows = await browser.windows.getAll({ populate: true });
   for (const win of windows) {
-    if (win.tabs?.some((tab) => tab.url === url)) return win.id;
+    if (win.tabs?.some((tab) => tab.url?.startsWith(base))) return win.id;
   }
   return undefined;
+}
+
+async function focusWindow(id: number): Promise<boolean> {
+  try {
+    await browser.windows.update(id, { focused: true });
+    return true;
+  } catch {
+    // The window closed between the listing and the focus: let the caller open
+    // a new one rather than reporting success against a window nobody sees.
+    return false;
+  }
 }
 
 /**

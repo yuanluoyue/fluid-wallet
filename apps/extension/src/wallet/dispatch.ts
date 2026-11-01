@@ -20,10 +20,11 @@ import {
   type FluidResponse,
   type FluidSession,
   type FluidWalletInfo,
+  type FluidWalletStatus,
 } from "@fluid-wallet/protocol";
 import { PermissionStore, RateLimiter, SessionRegistry } from "@fluid-wallet/core";
 
-import { openSetupWindow, requestApproval } from "./approval";
+import { openSetupWindow, openWalletWindow, requestApproval } from "./approval";
 import { spendRequest, usageToday } from "./budget";
 import { db } from "./db";
 import { emit, rememberTab } from "./events";
@@ -111,6 +112,7 @@ function toErrorShape(error: unknown): FluidErrorShape {
 }
 
 async function describeWallet(): Promise<FluidWalletInfo> {
+  const status = await walletStatus();
   return {
     name: "Fluid Wallet",
     walletVersion: WALLET_VERSION,
@@ -126,8 +128,50 @@ async function describeWallet(): Promise<FluidWalletInfo> {
       "conversation:write",
       "activity:read",
     ],
-    locked: !(await isUnlocked()),
+    locked: status !== "ready",
+    status,
   };
+}
+
+/**
+ * Whether the wallet can serve a request that touches a credential.
+ *
+ * `hasVault()` alone answers "does a wallet exist", which is the wrong question
+ * for a request: a sealed wallet exists and still cannot decrypt anything. The
+ * two states need different screens, so they are named rather than collapsed
+ * into the `locked` boolean the wire format already carries.
+ */
+async function walletStatus(): Promise<FluidWalletStatus> {
+  if (!(await hasVault())) return "uninitialized";
+  return (await isUnlocked()) ? "ready" : "locked";
+}
+
+/**
+ * Refuses a request that cannot work until the person acts, and shows them
+ * where to act.
+ *
+ * Used by everything that decrypts a provider key. Reporting `Locked` without
+ * raising the wallet leaves someone reading "open the extension" with no idea
+ * which icon that is — so the wallet window comes up on the unlock screen,
+ * which is the same screen a click on the toolbar icon would produce.
+ */
+async function requireReadyWallet(origin: string): Promise<void> {
+  const status = await walletStatus();
+  if (status === "ready") return;
+
+  // Both states land on the wallet's own window, which shows the first-run
+  // screen when there is no wallet yet and the unlock screen when there is one.
+  // Deliberately not `openSetupWindow`: that screen explains a missing
+  // *provider*, which is the wrong story for a wallet nobody created.
+  await openWalletWindow(origin);
+
+  throw new FluidError(
+    FluidErrorCode.Locked,
+    status === "uninitialized"
+      ? "Fluid Wallet has not been set up yet. Create it in the window that just opened."
+      : "Fluid Wallet is locked. Unlock it in the window that just opened, then retry.",
+    { reason: status === "uninitialized" ? "not-setup" : "locked" },
+  );
 }
 
 /**
@@ -155,6 +199,12 @@ export async function dispatch(
     switch (request.method) {
       case FluidMethod.WalletGetInfo:
         return ok(request.id, await describeWallet());
+
+      // Public on purpose: it reveals nothing and opens nothing a click on the
+      // toolbar icon would not. See `openWalletWindow` for the throttle that
+      // keeps it from being a way to spam windows at someone.
+      case FluidMethod.WalletOpen:
+        return ok(request.id, { opened: await openWalletWindow(origin) });
 
       case FluidMethod.WalletConnect:
         return ok(request.id, await connect(request.id, origin, request.params));
@@ -237,12 +287,7 @@ export async function dispatch(
             "The requested model was not granted to this connection.",
           );
         }
-        if (!(await hasVault())) {
-          throw new FluidError(
-            FluidErrorCode.Locked,
-            "Set up the wallet and add a provider before calling models.",
-          );
-        }
+        await requireReadyWallet(origin);
         limiter.consume(origin);
         await spendRequest(origin);
 
@@ -272,12 +317,7 @@ export async function dispatch(
         const permission = permissions.checkMethod(FluidMethod.InferenceProxy, origin);
         const params = assertProxyParams(request.params);
         const session = await ensureSession(params.sessionId, origin);
-        if (!(await hasVault())) {
-          throw new FluidError(
-            FluidErrorCode.Locked,
-            "Set up the wallet and add a provider before calling models.",
-          );
-        }
+        await requireReadyWallet(origin);
         limiter.consume(origin);
         await spendRequest(origin);
 
@@ -377,13 +417,10 @@ async function connect(
   }
 
   // Approving a connection the wallet cannot serve would only fail one step
-  // later, with the user left staring at a chat box.
-  if (!(await hasVault())) {
-    throw new FluidError(
-      FluidErrorCode.Locked,
-      "Fluid Wallet has not been set up yet. Open the extension to create it.",
-    );
-  }
+  // later, with the user left staring at a chat box. This also covers the
+  // wallet that *exists* but is locked: approving a grant for it would succeed
+  // and then every message would fail, which reads as a broken connection.
+  await requireReadyWallet(origin);
 
   // The approval window is the only place the user sees what a grant reaches,
   // so it is told up front instead of making them guess from a capability list.

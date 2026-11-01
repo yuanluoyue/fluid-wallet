@@ -7,7 +7,8 @@ export const metadata: Metadata = {
 };
 
 const methods = [
-  ["wallet.getInfo", "Version, capabilities and lock state"],
+  ["wallet.getInfo", "Version, capabilities, and whether it is ready, locked or not set up"],
+  ["wallet.open", "Raise the wallet window — the unlock screen when locked"],
   ["wallet.connect", "Request a scoped grant for this origin"],
   ["wallet.disconnect", "Drop this page's sessions, keep the grant"],
   ["wallet.getPermissions", "Read back what was granted"],
@@ -144,6 +145,22 @@ try {
 }`}</code>
           </pre>
           <p className="note">
+            A locked wallet is a state, not a failure. <code>wallet.getInfo</code> answers before
+            anything is asked, so the page can offer a button instead of waiting for a refusal:
+          </p>
+          <pre>
+            <code>{`const info = await client.detect();
+if (info?.status === "locked") {
+  await client.openWallet(); // raises the unlock screen; nothing is sent to the provider
+}`}</code>
+          </pre>
+          <p className="note">
+            <code>status</code> is <code>&quot;ready&quot;</code>, <code>&quot;locked&quot;</code>{" "}
+            or <code>&quot;uninitialized&quot;</code> — the last one needs a first-run screen, not a
+            password box. A wallet older than this field omits it; read <code>locked</code> as the
+            boolean equivalent.
+          </p>
+          <p className="note">
             <code>client.usage()</code> returns today&apos;s request budget for the origin, so a
             chat UI can warn before the limit is hit instead of after. Against a wallet that
             predates the method it returns <code>null</code> rather than throwing.
@@ -187,20 +204,31 @@ const result = await handle.completed;       // final text, usage, finish reason
         <section id="react">
           <h2>5 · React</h2>
           <pre>
-            <code>{`import { FluidProvider, useFluidWallet, useFluidModels } from "@fluid-wallet/sdk/react";
+            <code>{`import {
+  FluidProvider,
+  useFluidClient,
+  useFluidWallet,
+  useFluidModels,
+} from "@fluid-wallet/sdk/react";
 
 export function App() {
   return (
-    <FluidProvider clientOptions={{ appId: "my-app", appName: "My App" }}>
+    <FluidProvider appId="my-app" appName="My App">
       <Chat />
     </FluidProvider>
   );
 }
 
 function Chat() {
-  const { state, connect } = useFluidWallet();
-  const models = useFluidModels();
-  // state.availability · state.connection · state.authorization · state.inference
+  const client = useFluidClient();
+  const { availability, authorization, status, openWallet } = useFluidWallet();
+  const { models, refresh } = useFluidModels();
+
+  if (availability === "unavailable") return <Install />;
+  if (status === "uninitialized") return <button onClick={openWallet}>Create the wallet</button>;
+  if (status === "locked") return <button onClick={openWallet}>Unlock</button>;
+  if (authorization !== "granted") return <button onClick={() => client.connect()}>Connect</button>;
+  // models and refresh are populated once a grant exists
 }`}</code>
           </pre>
         </section>

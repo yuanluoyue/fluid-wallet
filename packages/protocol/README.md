@@ -22,6 +22,7 @@ which depends on this package.
 | Export                                                                          | What it answers                                              |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `FluidRequest`, `FluidResponse`, `FluidEvent`                                   | The three envelopes on the wire                              |
+| `FluidWalletInfo`, `FluidWalletStatus`                                          | Ready, locked, or no wallet yet — what a page can act on     |
 | `FluidMethod`, `FLUID_METHOD_NAMES`, `isFluidMethodName`                        | Method names, as a value you can iterate or narrow from      |
 | `FLUID_METHOD_CAPABILITIES`                                                     | Which capability each method is gated behind                 |
 | `FLUID_CAPABILITIES`, `GRANTABLE_CAPABILITIES`, `isGrantableCapability`         | Every capability, and the subset a page may hold             |
@@ -60,6 +61,7 @@ two exist in `FLUID_CAPABILITIES` only so the wallet's own UI can name them.
 | Method                  | Capability            |
 | ----------------------- | --------------------- |
 | `wallet.getInfo`        | — (public by design)  |
+| `wallet.open`           | — (raises the wallet) |
 | `wallet.connect`        | — (its own approval)  |
 | `wallet.disconnect`     | —                     |
 | `wallet.getPermissions` | `wallet:read`         |
