@@ -11,6 +11,9 @@ dist/
 .wrangler/
 *.tsbuildinfo
 
+# release artifacts (built zips uploaded to GitHub Releases)
+release/
+
 # cloudflare local env
 .dev.vars
 .dev.vars.*
