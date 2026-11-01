@@ -75,6 +75,14 @@ When a stream ends early (cancel, timeout, provider error):
 - Whatever deltas were delivered remain valid text. The app decides whether to
   keep them.
 - `FluidInferenceResult` is only produced for a completed generation.
+- The same rule holds on the raw channel: `proxy.end` with `truncated: true` is
+  an **error** to the consumer, not an ending. A half-written SSE frame handed
+  over as a finished `Response` is worse than a failure, because the caller has
+  no way to tell — a truncated tool call gets executed, a truncated JSON body
+  parses as a prefix, and the step continues from a false premise.
+- A `proxy` stream with no terminal event is subject to the same idle deadline
+  as a structured one (§3). The page-side watchdog cancels the request, so a
+  dead stream cannot leave a consumer waiting on a `Response` that never closes.
 
 ## 7. Tool rounds
 

@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -73,9 +74,7 @@ export interface FluidWalletState {
   wallet: FluidClientState["wallet"];
 }
 
-/** The subset most UIs need, kept separate so components do not re-render on deltas. */
-export function useFluidWallet(): FluidWalletState {
-  const state = useFluidState();
+function selectWalletState(state: FluidClientState): FluidWalletState {
   return {
     availability: state.availability,
     connection: state.connection,
@@ -83,6 +82,57 @@ export function useFluidWallet(): FluidWalletState {
     permission: state.permission,
     wallet: state.wallet,
   };
+}
+
+function walletStateEqual(left: FluidWalletState, right: FluidWalletState): boolean {
+  return (
+    left.availability === right.availability &&
+    left.connection === right.connection &&
+    left.authorization === right.authorization &&
+    left.permission === right.permission &&
+    left.wallet === right.wallet
+  );
+}
+
+/**
+ * Caches the selected value so a snapshot keeps its identity while it is equal.
+ *
+ * `client.state` is a new object on every publish, and a streaming inference
+ * publishes once per token. Passing that object straight to
+ * `useSyncExternalStore` re-renders every subscriber on every token — which is
+ * the opposite of what a hook written for "the subset most UIs need" is for.
+ */
+function createSelector<T>(
+  select: (state: FluidClientState) => T,
+  isEqual: (left: T, right: T) => boolean,
+): (state: FluidClientState) => T {
+  let cached!: T;
+  let primed = false;
+
+  return (state: FluidClientState): T => {
+    const next = select(state);
+    if (!primed || !isEqual(cached, next)) {
+      cached = next;
+      primed = true;
+    }
+    return cached;
+  };
+}
+
+/**
+ * Connection, authorization and the grant — not inference text.
+ *
+ * Safe to call in a toolbar or a badge: token deltas do not reach it, because
+ * nothing it selects changes while a stream runs.
+ */
+export function useFluidWallet(): FluidWalletState {
+  const client = useFluidClient();
+  const select = useMemo(() => createSelector(selectWalletState, walletStateEqual), []);
+
+  return useSyncExternalStore(
+    useCallback((onChange: () => void) => client.subscribe(onChange), [client]),
+    useCallback(() => select(client.state), [client, select]),
+  );
 }
 
 export interface FluidModelsState {

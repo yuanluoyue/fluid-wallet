@@ -300,8 +300,22 @@ export class FluidClient {
       });
       return permission;
     } catch (error) {
-      this.#patch({ connection: "disconnected", authorization: "denied" });
-      throw toFluidError(error);
+      const fluidError = toFluidError(error);
+      // Only an actual refusal is a denial.
+      //
+      // This used to write `denied` unconditionally, so a page whose wallet was
+      // missing, asleep or broken told the user they had refused access — for a
+      // prompt that never appeared. Somebody then goes looking for a decision
+      // nobody made, while the real problem is that nothing answered at all.
+      if (
+        fluidError.code === FluidErrorCode.Rejected ||
+        fluidError.code === FluidErrorCode.PermissionDenied
+      ) {
+        this.#patch({ connection: "disconnected", authorization: "denied" });
+      } else {
+        this.#patch({ connection: "disconnected" });
+      }
+      throw fluidError;
     }
   }
 
@@ -386,7 +400,13 @@ export class FluidClient {
    */
   createInference(params: FluidInferenceParams): FluidInferenceHandle {
     const requestId = createRequestId();
-    const queue = createEventQueue<FluidEvent>();
+    const queue = createEventQueue<FluidEvent>({
+      // A consumer that breaks out of `for await` stopped listening; leaving
+      // the generation running bills the user for tokens nobody will read.
+      onCancel: () => {
+        void this.cancelInference(params.sessionId, requestId).catch(() => undefined);
+      },
+    });
 
     this.#queues.set(requestId, queue);
     this.#patch({
@@ -488,11 +508,34 @@ export class FluidClient {
       queue.close();
       return result;
     } catch (error) {
+      // A failed request leaves the entry at "streaming" unless it is told
+      // otherwise, and a "streaming" entry is never reclaimed.
+      this.#updateInference(requestId, { status: "error" });
       queue.fail(error);
       throw error;
     } finally {
       this.#queues.delete(requestId);
+      this.#pruneInference(requestId);
     }
+  }
+
+  /**
+   * Drops finished inferences other than `keep`.
+   *
+   * Each entry holds its full accumulated text, and nothing ever removed one:
+   * a fifty-turn conversation kept fifty transcripts around for as long as the
+   * page lived. The one just produced stays, because a UI reads it after
+   * `completed` resolves; everything else that is no longer streaming goes.
+   */
+  #pruneInference(keep: string): void {
+    const stale = Object.entries(this.#state.inference).filter(
+      ([id, entry]) => id !== keep && entry.status !== "streaming",
+    );
+    if (stale.length === 0) return;
+
+    const next = { ...this.#state.inference };
+    for (const [id] of stale) delete next[id];
+    this.#patch({ inference: next });
   }
 
   #updateInference(requestId: string, patch: Partial<FluidInferenceState>): void {

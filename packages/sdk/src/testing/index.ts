@@ -36,6 +36,10 @@ export interface MockProxyResult {
   status: number;
   contentType: string;
   body: string;
+  /** Response headers the wallet would forward. */
+  headers?: Record<string, string>;
+  /** Ends the stream early, the way a cancelled or dropped proxy does. */
+  truncated?: boolean;
 }
 
 export interface MockWalletOptions {
@@ -278,7 +282,12 @@ export function createMockWallet(options: MockWalletOptions = {}): MockWallet {
     emit({
       type: FLUID_EVENTS.ProxyStart,
       requestId,
-      payload: { proxyId: requestId, status: answer.status, contentType: answer.contentType },
+      payload: {
+        proxyId: requestId,
+        status: answer.status,
+        contentType: answer.contentType,
+        ...(answer.headers ? { headers: answer.headers } : {}),
+      },
     });
 
     // Split into small frames so reassembly is actually exercised.
@@ -294,10 +303,19 @@ export function createMockWallet(options: MockWalletOptions = {}): MockWallet {
     emit({
       type: FLUID_EVENTS.ProxyEnd,
       requestId,
-      payload: { proxyId: requestId, bytes: answer.body.length },
+      payload: {
+        proxyId: requestId,
+        bytes: answer.body.length,
+        ...(answer.truncated ? { truncated: true } : {}),
+      },
     });
 
-    return { status: answer.status, contentType: answer.contentType, bytes: answer.body.length };
+    return {
+      status: answer.status,
+      contentType: answer.contentType,
+      bytes: answer.body.length,
+      ...(answer.truncated ? { truncated: true } : {}),
+    };
   };
 
   const dispatch = async (

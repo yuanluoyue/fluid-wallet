@@ -84,16 +84,29 @@ export async function connectFluid(options: ConnectFluidOptions = {}): Promise<F
     const session = await client.createSession(options.model ? { model: options.model } : {});
     const providerId = options.providerId ?? permission.providers[0] ?? DEFAULT_PROVIDER_ID;
 
+    // The handle follows its own session through a recovery, so a caller that
+    // logs `handle.sessionId` after a long-lived page does not read a dead id.
+    let currentSessionId = session.id;
+
     return {
       mode: "wallet",
       providerId,
       model: options.model ?? session.model,
-      sessionId: session.id,
+      get sessionId() {
+        return currentSessionId;
+      },
       client,
       createFetch: () =>
         createFluidFetch(client, {
-          sessionId: session.id,
+          sessionId: currentSessionId,
           ...(options.providerId ? { providerId: options.providerId } : {}),
+          // Keep the read lazy: `createFetch()` is called once and then reused,
+          // so the id it starts with is only the first one.
+          recoverSession: async () => {
+            const next = await client.createSession(options.model ? { model: options.model } : {});
+            currentSessionId = next.id;
+            return next.id;
+          },
         }),
       disconnect: () => client.disconnect(),
     };
@@ -120,7 +133,7 @@ export async function connectFluid(options: ConnectFluidOptions = {}): Promise<F
   };
   console.debug("[fluid-wallet] wallet unreachable", evidence);
 
-  const apiKey = options.devApiKey ?? env("FLUID_DEV_API_KEY");
+  const apiKey = options.devApiKey ?? devKeyFromEnv();
   if (!apiKey) {
     throw new FluidError(
       FluidErrorCode.NotInstalled,
@@ -190,11 +203,47 @@ function readUrl(input: string | URL | Request): URL {
   return new URL(raw, "https://provider.invalid");
 }
 
-function env(name: string): string | undefined {
-  const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
-  return proc?.env?.[name];
+/**
+ * `process` as it may or may not exist.
+ *
+ * Declared rather than assumed: this package does not depend on Node types, and
+ * the check below is exactly the case where the global is absent.
+ */
+declare const process: { env?: Record<string, string | undefined> } | undefined;
+
+/** Whatever the bundler exposed, without assuming which bundler it was. */
+interface BuildEnv {
+  env?: Record<string, unknown>;
+}
+
+/**
+ * Reads a build-time variable in a form a bundler can actually replace.
+ *
+ * The previous version looked names up dynamically — `globalThis.process.env[name]`
+ * — which no bundler can substitute, and `globalThis.process` does not exist in
+ * a page to begin with. Two consequences, both silent: the documented
+ * `FLUID_DEV_API_KEY` fallback never fired, and `isProduction()` was never true,
+ * so the guard that refuses that fallback in a production build never ran
+ * either. Literal property reads are what get replaced, so each name is spelled
+ * out and every environment is checked.
+ */
+function devKeyFromEnv(): string | undefined {
+  if (typeof process !== "undefined") {
+    const fromNode = process.env?.FLUID_DEV_API_KEY;
+    if (fromNode) return fromNode;
+  }
+
+  const build = (import.meta as BuildEnv).env;
+  const fromMeta = build?.FLUID_DEV_API_KEY ?? build?.VITE_FLUID_DEV_API_KEY;
+  return typeof fromMeta === "string" && fromMeta.length > 0 ? fromMeta : undefined;
 }
 
 function isProduction(): boolean {
-  return env("NODE_ENV") === "production";
+  if (typeof process !== "undefined" && process.env?.NODE_ENV) {
+    return process.env.NODE_ENV === "production";
+  }
+
+  const build = (import.meta as BuildEnv).env;
+  if (build?.PROD === true) return true;
+  return build?.MODE === "production";
 }

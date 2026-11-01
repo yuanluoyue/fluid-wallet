@@ -296,6 +296,58 @@ export interface FluidInferenceResult {
 export type FluidProxyMethod = "GET" | "POST";
 
 /**
+ * Headers a page is allowed to set on a proxied request.
+ *
+ * An allow-list rather than a deny-list, because the interesting failure is the
+ * header nobody thought about: `authorization` and `x-api-key` carry the user's
+ * credential and must never arrive from a page, and `host`, `origin` or a
+ * `content-length` the wallet cannot honour describe a request the wallet is
+ * not actually making.
+ *
+ * What is left is the set a real provider SDK needs in order to be understood
+ * by its own API: which format the body is in, and which version of that
+ * format the caller expects. `anthropic-*` is here so the raw proxy is not
+ * quietly OpenAI-only — the path is already format-agnostic, and refusing the
+ * one header that identifies an Anthropic request would make that a lie.
+ */
+export const FLUID_PROXY_REQUEST_HEADERS = [
+  "accept",
+  "content-type",
+  "anthropic-version",
+  "anthropic-beta",
+  "anthropic-dangerous-direct-browser-access",
+  "openai-organization",
+  "openai-project",
+  "openai-beta",
+] as const;
+
+export type FluidProxyRequestHeader = (typeof FLUID_PROXY_REQUEST_HEADERS)[number];
+
+/**
+ * Response headers that never cross back to the page.
+ *
+ * The body is re-framed on the way through: it is decoded to text and
+ * re-encoded, and it is delivered as a stream. So `content-encoding` and
+ * `content-length` describe the provider's wire format, not the one the page
+ * receives, and a `Response` carrying either is a `Response` that lies.
+ * `set-cookie` is dropped because the page's origin is not the provider's and
+ * the wallet is not a cookie jar.
+ */
+export const FLUID_PROXY_RESPONSE_HEADER_DENYLIST = [
+  "connection",
+  "content-encoding",
+  "content-length",
+  "keep-alive",
+  "proxy-authenticate",
+  "set-cookie",
+  "set-cookie2",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade",
+] as const;
+
+/**
  * A request the page wants the wallet to make on its behalf.
  *
  * The page controls the path only. The scheme, host and API key always come
@@ -311,7 +363,13 @@ export interface FluidProxyParams {
   path: string;
   /** Raw request body, already serialised by the app. */
   body?: string;
-  /** Only `accept` is forwarded; everything else is set by the wallet. */
+  /**
+   * Headers the wallet may forward, from `FLUID_PROXY_REQUEST_HEADERS`.
+   *
+   * Anything outside that list is rejected by validation rather than silently
+   * dropped: an app that thinks it set `x-api-key` should find out at the call
+   * site, not by watching its requests come back 401.
+   */
   headers?: Record<string, string>;
 }
 
@@ -428,6 +486,17 @@ export interface FluidProxyStartPayload {
   proxyId: string;
   status: number;
   contentType: string;
+  /**
+   * Response headers worth keeping, already filtered by the wallet.
+   *
+   * Without these a `Response` built by the page carries a status and nothing
+   * else, so `retry-after` never reaches the caller — which is how a client
+   * that knows how to back off from a 429 stops backing off, and how an agent
+   * turns a rate limit into a hard failure.
+   *
+   * Optional: an older wallet sends none, and the SDK must not depend on them.
+   */
+  headers?: Record<string, string>;
 }
 
 export interface FluidProxyChunkPayload {

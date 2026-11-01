@@ -27,7 +27,17 @@ const FINISH_REASONS = {
   error: "error",
 } as const satisfies Record<FluidFinishReason, FinishReason>;
 
-/** Converts UI messages into protocol messages. Only text parts cross the boundary today. */
+/**
+ * Converts UI messages into protocol messages.
+ *
+ * Only text parts cross the boundary. Tool calls are the visible gap: the
+ * transport below surfaces `tool-input-available` so a UI can show and run a
+ * call, but the result cannot be sent back — `FluidMessage` carries `toolCalls`
+ * on the assistant turn and the wallet's provider layer has no way to express a
+ * tool result, so a second round would arrive at the model without the output
+ * it is waiting for. Sending an empty message instead would be worse than
+ * saying so here.
+ */
 export function toFluidMessages(messages: UIMessage[]): FluidMessage[] {
   return messages.map((message) => ({
     role: message.role,
@@ -44,8 +54,10 @@ export function toFluidMessages(messages: UIMessage[]): FluidMessage[] {
  * `useChat({ transport })` works unchanged: the wallet becomes the model
  * provider, and no key or base URL reaches the app.
  *
- * Scope for 0.1.0: text streaming and tool calls. Images, structured output and
- * resume are not promised yet — see `specs/streaming.md`.
+ * Scope for 0.1.x: text streaming, single turn. Tool calls are reported to the
+ * UI but cannot be carried back into the next request (see `toFluidMessages`);
+ * images, structured output and resume are not promised yet — see
+ * `specs/streaming.md`.
  */
 export class FluidChatTransport implements ChatTransport<UIMessage> {
   readonly #client: FluidClient;

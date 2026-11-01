@@ -493,6 +493,14 @@ async function ensureSession(sessionId: string, origin: string): Promise<FluidSe
     if (record.status !== "active") {
       throw new FluidError(FluidErrorCode.SessionExpired, "Session is no longer active.");
     }
+    // The in-memory registry checks `expiresAt` on every read, but a session
+    // being rebuilt from storage has never been in it. Checking here keeps the
+    // field meaningful: without this, an expired session was restored, and only
+    // the read that followed refused it.
+    if (record.expiresAt !== undefined && record.expiresAt <= Date.now()) {
+      await db().sessions.update(sessionId, { status: "expired" });
+      throw new FluidError(FluidErrorCode.SessionExpired, "Session is no longer active.");
+    }
 
     sessions.restore({
       id: record.id,

@@ -208,6 +208,11 @@ const result = streamText({ model: deepseek("deepseek-chat"), messages, tools })
 钱包指向别处。这条路径需要 `inference:proxy` 能力，`connectFluid` 会申请它，审批窗口会
 把它写清楚。
 
+调用方会注意到两件事：提供商的响应头会跟着 `Response` 一起回来（含 `retry-after` 和
+`x-ratelimit-*`，所以 SDK 自带的 429 退避仍然有效），而 key 一律以
+`authorization: Bearer` 注入。这对 OpenAI 兼容的提供商是通行的；用其他认证头的提供商，
+这条路径目前覆盖不到。
+
 ### 2. 让钱包来组织请求
 
 当应用希望由钱包记录对话、并让提供商细节完全不进入客户端时，用结构化 API：
@@ -244,8 +249,10 @@ for await (const event of inference.events) {
 没有钱包应答时，`connectFluid()` 会退化为直接调用 DeepSeek，但仅当存在开发用 key：
 
 ```bash
-# .env.local — Vite 需要 VITE_ 前缀，Next.js 不需要
+# .env.local — Next.js 和 Node 读 FLUID_DEV_API_KEY；Vite 只暴露它认识的
+# 变量，所以要同时给一份 VITE_ 前缀的
 FLUID_DEV_API_KEY=sk-...
+VITE_FLUID_DEV_API_KEY=sk-...
 ```
 
 ```ts
@@ -255,6 +262,9 @@ const fluid = await connectFluid({ appName: "My app" });
 
 应用里没有其他改动：`fluid.createFetch()` 用与钱包相同的辅助函数解析 URL。这个回退在生产
 构建里拒绝运行，它只是便利，**从来不是安全边界**。
+
+这两个变量都用字面量属性访问读取，因为那是打包器唯一能替换的写法。早先的实现是动态查表，
+在浏览器里永远拿到 `undefined`——回退从不生效，紧挨着它的生产环境守卫也从不触发。
 
 ## 不打开浏览器也能测
 

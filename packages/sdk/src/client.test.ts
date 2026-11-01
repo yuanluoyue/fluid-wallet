@@ -168,3 +168,73 @@ describe("FluidClient", () => {
     await expect(client.usage()).resolves.toBeNull();
   });
 });
+
+describe("FluidClient under long sessions", () => {
+  it("does not call a missing wallet a refusal", async () => {
+    // A wallet that never answers is not a user who said no. Reporting "denied"
+    // for a prompt that never appeared sends people looking for a decision
+    // nobody made, while the actual problem is that nothing is listening.
+    const wallet = createMockWallet();
+    wallet.request = async (request) => ({
+      jsonrpc: "2.0",
+      id: request.id,
+      error: { code: FluidErrorCode.Timeout, message: "No wallet is listening." },
+    });
+    const client = new FluidClient({ transport: new BridgeTransport(wallet) });
+
+    await expect(client.connect()).rejects.toBeInstanceOf(FluidError);
+    expect(client.state.connection).toBe("disconnected");
+    expect(client.state.authorization).toBe("unknown");
+  });
+
+  it("still calls a refusal a refusal", async () => {
+    const { client } = setup({ permissionMode: "deny" });
+
+    await expect(client.connect()).rejects.toBeInstanceOf(FluidError);
+    expect(client.state.authorization).toBe("denied");
+  });
+
+  it("reclaims finished inferences so a long chat does not grow forever", async () => {
+    // Each entry keeps the whole accumulated text, and the map is copied on
+    // every delta. Keeping them all made cost climb with the number of turns.
+    const { client } = setup({ reply: "ok" });
+    await client.connect();
+    const session = await client.createSession();
+
+    for (let turn = 0; turn < 4; turn += 1) {
+      const handle = client.createInference({
+        sessionId: session.id,
+        messages: [{ role: "user", content: `turn ${turn}` }],
+        stream: true,
+      });
+      // Drain, or the completed promise rejects with nobody listening.
+      for await (const _event of handle.events) void _event;
+      await handle.completed;
+    }
+
+    expect(Object.keys(client.state.inference)).toHaveLength(1);
+  });
+
+  it("cancels the generation when the consumer stops reading", async () => {
+    // `break` out of `for await` used to leave the wallet generating into a
+    // queue nobody would read: paid for, delivered nowhere.
+    const { client, wallet } = setup({ reply: "a b c d e f", chunkDelayMs: 1 });
+    await client.connect();
+    const session = await client.createSession();
+
+    const handle = client.createInference({
+      sessionId: session.id,
+      messages: [{ role: "user", content: "hi" }],
+      stream: true,
+    });
+    handle.completed.catch(() => undefined);
+
+    for await (const event of handle.events) {
+      void event;
+      break;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(wallet.calls.some((call) => call.method === "inference.cancel")).toBe(true);
+  });
+});

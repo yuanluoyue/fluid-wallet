@@ -102,9 +102,36 @@ interface FluidProxyParams {
   method?: "GET" | "POST";
   path: string; // e.g. "/v1/chat/completions"
   body?: string; // serialised by the app
-  headers?: { accept?: string }; // the only header a page may set
+  headers?: Record<string, string>; // from FLUID_PROXY_REQUEST_HEADERS only
 }
 ```
+
+The header set is an **allow-list**, published as `FLUID_PROXY_REQUEST_HEADERS`:
+`accept`, `content-type`, `anthropic-version`, `anthropic-beta`,
+`anthropic-dangerous-direct-browser-access`, `openai-organization`,
+`openai-project`, `openai-beta`. It exists because the alternative — forwarding
+whatever the page sends — hands the page two things it must never have: the
+credential header, and any header that describes a connection it does not own.
+A format-agnostic proxy that refuses `anthropic-version` is not format-agnostic;
+it is OpenAI-only with a generic name.
+
+The head event carries the provider's response headers back, filtered by
+`FLUID_PROXY_RESPONSE_HEADER_DENYLIST`:
+
+```ts
+interface FluidProxyStartPayload {
+  proxyId: string;
+  status: number;
+  contentType: string;
+  headers?: Record<string, string>; // optional: older wallets send none
+}
+```
+
+Without them the page gets a `Response` that knows its status and nothing else,
+so `retry-after` never arrives and the caller's 429 backoff silently does
+nothing. `content-encoding` and `content-length` are always dropped: the body is
+decoded to text and re-framed, so both describe a wire format the page is not
+receiving.
 
 Rules that a wallet **must** enforce:
 

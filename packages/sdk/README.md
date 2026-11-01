@@ -61,13 +61,39 @@ drive `FluidClient` yourself:
 ```ts
 import { createFluidFetch } from "@fluid-wallet/sdk";
 
-const fluidFetch = createFluidFetch(client, { sessionId, providerId: "deepseek" });
+const fluidFetch = createFluidFetch(client, {
+  sessionId,
+  providerId: "deepseek",
+  // How long the stream may be silent before it is treated as dead. The default
+  // is 30s; 0 disables the deadline.
+  idleTimeoutMs: 30_000,
+  // Called once if the wallet has forgotten the session (extension update, idle
+  // timeout). Returning a fresh id makes the request retry instead of failing.
+  recoverSession: async () => (await client.createSession()).id,
+});
 ```
 
 The page only supplies a **path**. Scheme, host and credentials come from the
 provider the user configured, so a compromised page cannot point the wallet
 somewhere else. This path needs `inference:proxy`, which `connectFluid()`
 requests by default.
+
+Two details decide whether a real provider SDK works through this door:
+
+- **Request headers.** The page may set `content-type`, `accept` and the
+  version/organisation headers a provider negotiates with (`anthropic-version`,
+  `openai-organization`, …) — the full list is `FLUID_PROXY_REQUEST_HEADERS` on
+  `@fluid-wallet/protocol`. Everything else is dropped, including the
+  `authorization` header your SDK sends: the credential is the wallet's, and the
+  placeholder key never leaves the page.
+- **Response headers.** `retry-after` and the `x-ratelimit-*` family come back
+  on the `Response`, so a client that knows how to back off from a 429 still
+  can. `content-encoding` and `content-length` do not, because the body has been
+  re-framed as text and those two would be wrong.
+
+The key is injected as `authorization: Bearer`, which is what OpenAI-compatible
+providers expect. A provider that authenticates with a different scheme is not
+supported by this path yet.
 
 ### 2. Let the wallet shape the request — `FluidClient`
 
@@ -224,19 +250,30 @@ When no wallet answers and a key is present in the environment,
 extension:
 
 ```bash
-# .env.local — Vite needs the VITE_ prefix, Next.js does not
+# Next.js / Node: FLUID_DEV_API_KEY
+# Vite: the VITE_ prefix is what its env replacement exposes
 FLUID_DEV_API_KEY=sk-...
+VITE_FLUID_DEV_API_KEY=sk-...
 ```
 
 `fluid.mode` is then `"dev"` instead of `"wallet"`. A production build refuses
 this path outright: it is a convenience, never a security boundary.
 
-## Scope for 0.1.0
+Both lookups are static property reads, which is the only form a bundler can
+replace. A dynamic `process.env[name]` in a browser bundle is `undefined` — and
+an `isProduction()` built on it is never true, so the guard silently stops
+guarding.
 
-Text in, text out, with streaming, cancellation and tool-call round trips on the
-structured path. Images, structured output and stream resumption are not
-promised yet. The proxy path is passthrough by design, so whatever provider
-feature you use there already works.
+## Scope for 0.1.x
+
+Text in, text out, with streaming and cancellation. Tool calls are surfaced to
+the UI but cannot be carried back into the next request yet: the wallet's
+provider layer has no way to express a tool result, so a multi-step agent has to
+own that loop itself for now. Images, structured output and stream resumption
+are not promised either.
+
+The proxy path is passthrough by design, so whatever provider feature you use
+there already works — as long as the provider authenticates with a bearer token.
 
 ## License
 

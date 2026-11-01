@@ -1,9 +1,12 @@
 import {
   FLUID_EVENTS,
+  FLUID_LIMITS,
+  FLUID_PROXY_RESPONSE_HEADER_DENYLIST,
   FluidError,
   FluidErrorCode,
   describeProviderEndpoints,
   isAllowedProviderEndpoint,
+  isProxyRequestHeader,
   resolveProviderUrl,
   type FluidEvent,
   type FluidPermission,
@@ -76,9 +79,7 @@ export async function runProxy(input: RunProxyInput): Promise<FluidProxyResponse
     throw new FluidError(FluidErrorCode.InvalidParams, "The provider base URL is not a valid URL.");
   }
 
-  const headers: Record<string, string> = { authorization: `Bearer ${credentials.apiKey}` };
-  if (params.body !== undefined) headers["content-type"] = "application/json";
-  if (params.headers?.accept) headers.accept = params.headers.accept;
+  const headers = buildRequestHeaders(params, credentials.apiKey);
 
   const controller = new AbortController();
   active.set(requestId, controller);
@@ -90,9 +91,25 @@ export async function runProxy(input: RunProxyInput): Promise<FluidProxyResponse
 
   // Serialised emitter: `browser.tabs.sendMessage` is async and out-of-order
   // chunks would corrupt an SSE stream.
+  //
+  // A failed delivery means the tab navigated away or was closed while the
+  // provider was still generating. Nobody is left to read the rest, so the
+  // controller is aborted: the alternative is streaming a whole completion
+  // into a dead tab and paying for it.
   let chain: Promise<void> = Promise.resolve();
+  let undeliverable = false;
   const send = (event: FluidEvent): void => {
-    chain = chain.then(() => emit(requestId, event)).catch(() => undefined);
+    chain = chain
+      .then(async () => {
+        if (undeliverable) return;
+        if (await emit(requestId, event)) return;
+        undeliverable = true;
+        controller.abort();
+      })
+      .catch(() => {
+        undeliverable = true;
+        controller.abort();
+      });
   };
 
   try {
@@ -108,7 +125,12 @@ export async function runProxy(input: RunProxyInput): Promise<FluidProxyResponse
     send({
       type: FLUID_EVENTS.ProxyStart,
       requestId,
-      payload: { proxyId: requestId, status, contentType },
+      payload: {
+        proxyId: requestId,
+        status,
+        contentType,
+        ...forwardableHeaders(response.headers),
+      },
     });
 
     if (response.body) {
@@ -223,6 +245,58 @@ function isAbort(error: unknown, controller: AbortController): boolean {
     controller.signal.aborted ||
     (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError"))
   );
+}
+
+/**
+ * The headers the wallet actually sends upstream.
+ *
+ * The page may choose the ones in `FLUID_PROXY_REQUEST_HEADERS`: the format and
+ * the version, which is exactly what a provider's own SDK negotiates. It cannot
+ * choose the credential, and the credential is written last so nothing above it
+ * can shadow it — a page that could supply `authorization` could point its own
+ * key at the user's account, or blank it out and read the resulting error.
+ *
+ * Validated again here rather than trusted from the page-side SDK: that SDK is
+ * not a boundary, and this function is the one place that decides.
+ */
+function buildRequestHeaders(params: FluidProxyParams, apiKey: string): Record<string, string> {
+  const headers: Record<string, string> = {};
+
+  for (const [name, value] of Object.entries(params.headers ?? {})) {
+    const key = name.toLowerCase();
+    if (!isProxyRequestHeader(key)) continue;
+    headers[key] = value;
+  }
+
+  if (params.body !== undefined && headers["content-type"] === undefined) {
+    headers["content-type"] = "application/json";
+  }
+  headers.authorization = `Bearer ${apiKey}`;
+  return headers;
+}
+
+/**
+ * The response headers worth handing back to the page.
+ *
+ * A `Response` that carries only a status and a content type has already thrown
+ * away `retry-after`, and with it the client's ability to wait out a rate limit
+ * instead of failing the step. The denylist removes what would be wrong by the
+ * time it arrives — the body is re-framed as text, so its length and encoding
+ * are no longer the provider's — and the caps keep a chatty provider from
+ * bloating every message.
+ */
+function forwardableHeaders(headers: Headers): { headers?: Record<string, string> } {
+  const denied = new Set<string>(FLUID_PROXY_RESPONSE_HEADER_DENYLIST);
+  const kept: Record<string, string> = {};
+
+  for (const [name, value] of headers) {
+    const key = name.toLowerCase();
+    if (denied.has(key)) continue;
+    if (Object.keys(kept).length >= FLUID_LIMITS.maxProxyHeaders) break;
+    kept[key] = value.slice(0, FLUID_LIMITS.maxProxyHeaderChars);
+  }
+
+  return Object.keys(kept).length > 0 ? { headers: kept } : {};
 }
 
 /**

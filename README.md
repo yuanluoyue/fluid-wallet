@@ -236,6 +236,12 @@ the user configured, so a compromised page cannot point the wallet anywhere else
 This path needs the `inference:proxy` capability, which `connectFluid` requests
 and the approval window spells out.
 
+Two things a caller notices: the provider's response headers come back with the
+`Response` (`retry-after` and `x-ratelimit-*` included, so an SDK's own 429
+backoff keeps working), and the key is always sent as `authorization: Bearer`.
+That is right for anything OpenAI-compatible; a provider that authenticates with
+a different header is not covered by this path yet.
+
 ### 2. Let the wallet shape the request
 
 Use the structured API when the app wants the wallet to record the conversation
@@ -274,8 +280,10 @@ for await (const event of inference.events) {
 but only if a development key is present:
 
 ```bash
-# .env.local — Vite needs the VITE_ prefix, Next.js does not
+# .env.local — Next.js and Node read FLUID_DEV_API_KEY; Vite only exposes
+# variables it was told about, so give it the VITE_ prefix as well
 FLUID_DEV_API_KEY=sk-...
+VITE_FLUID_DEV_API_KEY=sk-...
 ```
 
 ```ts
@@ -286,6 +294,11 @@ const fluid = await connectFluid({ appName: "My app" });
 Nothing else in the app changes: `fluid.createFetch()` resolves URLs with the
 same helper the wallet uses. The fallback refuses to run in a production build,
 and it is a convenience, never a security boundary.
+
+Both variables are read with a literal property access, which is the only form a
+bundler can substitute. An earlier version looked them up dynamically and always
+found `undefined` in a browser — the fallback never fired, and neither did the
+production guard that sits next to it.
 
 ## Testing without a browser
 

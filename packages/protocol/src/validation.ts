@@ -1,5 +1,5 @@
 import { FluidError, FluidErrorCode } from "./errors";
-import { FLUID_CAPABILITIES } from "./types";
+import { FLUID_CAPABILITIES, FLUID_PROXY_REQUEST_HEADERS } from "./types";
 import type {
   FluidCapability,
   FluidEvent,
@@ -35,6 +35,9 @@ export const FLUID_LIMITS = {
   /** Raw proxied request bodies are bounded like the structured ones. */
   maxProxyBodyBytes: 1_000_000,
   maxProxyPathChars: 512,
+  /** Header sets are capped so a chatty provider cannot bloat every message. */
+  maxProxyHeaders: 24,
+  maxProxyHeaderChars: 512,
 } as const;
 
 export type FluidValidation<T> = { ok: true; value: T } | { ok: false; error: FluidError };
@@ -49,6 +52,18 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function isCapability(value: unknown): value is FluidCapability {
   return (FLUID_CAPABILITIES as readonly unknown[]).includes(value);
+}
+
+/**
+ * Whether a page may set this header on a proxied request.
+ *
+ * Compared case-insensitively: a page that writes `Accept` is asking for the
+ * same thing as one that writes `accept`, and refusing it would teach the
+ * wrong lesson about which headers are allowed.
+ */
+export function isProxyRequestHeader(name: string): boolean {
+  const lower = name.toLowerCase();
+  return (FLUID_PROXY_REQUEST_HEADERS as readonly string[]).includes(lower);
 }
 
 /** Validates the request envelope. Method-specific params are validated by the wallet. */
@@ -209,11 +224,15 @@ export function parseProxyParams(input: unknown): FluidValidation<FluidProxyPara
 
   if (input.headers !== undefined) {
     if (!isRecord(input.headers)) return invalid("headers must be an object.");
-    for (const [name, value] of Object.entries(input.headers)) {
-      if (name !== "accept") {
+    const entries = Object.entries(input.headers);
+    if (entries.length > FLUID_LIMITS.maxProxyHeaders) {
+      return invalid("too many headers.");
+    }
+    for (const [name, value] of entries) {
+      if (!isProxyRequestHeader(name)) {
         return invalid(`Header "${name}" cannot be set by the page.`);
       }
-      if (typeof value !== "string" || value.length > 256) {
+      if (typeof value !== "string" || value.length > FLUID_LIMITS.maxProxyHeaderChars) {
         return invalid(`Header "${name}" is invalid.`);
       }
     }
