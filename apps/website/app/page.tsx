@@ -54,7 +54,7 @@ export default function HomePage() {
           <a className="primary" href="/docs">
             Read the docs
           </a>
-          <a className="ghost" href="https://github.com/fluid-wallet/fluid-wallet">
+          <a className="ghost" href="https://github.com/yuanluoyue/fluid-wallet">
             Source
           </a>
         </div>

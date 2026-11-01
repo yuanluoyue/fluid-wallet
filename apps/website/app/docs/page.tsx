@@ -55,7 +55,7 @@ export default function DocsPage() {
             review and lets you read the code you are running.
           </p>
           <pre>
-            <code>{`git clone https://github.com/fluid-wallet/fluid-wallet
+            <code>{`git clone https://github.com/yuanluoyue/fluid-wallet
 cd fluid-wallet
 pnpm install
 pnpm --filter @fluid-wallet/extension build
@@ -63,6 +63,13 @@ pnpm --filter @fluid-wallet/extension build
 # chrome://extensions → Developer mode → Load unpacked
 # select apps/extension/dist/chrome-mv3`}</code>
           </pre>
+          <p>
+            The app side is one package: <code>npm install @fluid-wallet/sdk</code>. Its types ship
+            with it, so <code>{`import { connectFluid } from "@fluid-wallet/sdk"`}</code>{" "}
+            type-checks with nothing else installed. <code>@fluid-wallet/protocol</code> arrives as
+            a dependency, and is only worth installing on its own if you are writing a wallet rather
+            than calling one.
+          </p>
         </section>
 
         <section id="wallet">
